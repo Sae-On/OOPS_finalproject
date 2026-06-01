@@ -6,9 +6,24 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
+set(MODELS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Models")
 
 set(SOURCES
     main.cpp
+    FactoryController.cpp
+
+    ${MODELS_DIR}/Root.cpp
+    ${MODELS_DIR}/Machines/Machine.cpp
+    ${MODELS_DIR}/Machines/Photolithography.cpp
+    ${MODELS_DIR}/Machines/Etcher.cpp
+    ${MODELS_DIR}/Machines/IonImplantator.cpp
+    ${MODELS_DIR}/Machines/Packager.cpp
+    ${MODELS_DIR}/Products/Product.cpp
+    ${MODELS_DIR}/Products/RawWafer.cpp
+    ${MODELS_DIR}/Products/PatternedWafer.cpp
+    ${MODELS_DIR}/Products/EtchedWafer.cpp
+    ${MODELS_DIR}/Products/DopedWafer.cpp
+    ${MODELS_DIR}/Products/CPU.cpp
 
     ${IMGUI_DIR}/imgui.cpp
     ${IMGUI_DIR}/imgui_demo.cpp
@@ -25,6 +40,7 @@ add_executable(IMGuiApp ${SOURCES})
 target_include_directories(IMGuiApp PRIVATE
     ${IMGUI_DIR}
     ${IMGUI_DIR}/backends
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 find_package(OpenGL REQUIRED)

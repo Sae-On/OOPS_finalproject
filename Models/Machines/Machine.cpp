@@ -1,7 +1,9 @@
 #include "Models/Machines/Machine.h"
 
 Machine::Machine(int processT, int repairT, float breakdownC)
-    : state(IDLE), processTime(processT), health(100), output_num(0), remaining_time(0), repair_time(repairT), breakdown_chance(breakdownC), currentProduct(nullptr) {}
+    : state(MACHINE_IDLE), processTime(processT), health(100), output_num(0),
+      remaining_time(0), repair_time(repairT), breakdown_chance(breakdownC),
+      currentProduct(nullptr), nextMachine(nullptr) {}
 
 Machine::~Machine() {
     for (Product* product : queue) {
@@ -12,11 +14,11 @@ Machine::~Machine() {
 }
 
 void Machine::breakdown() {
-    state = BROKEN;
+    state = MACHINE_BROKEN;
 }
 
 void Machine::repair() {
-    state = IDLE;
+    state = MACHINE_IDLE;
     health = health > 70 ? 100 : health + 40;
 }
 
@@ -29,16 +31,48 @@ Product* Machine::popQueue() {
     return product;
 }
 
-void Machine::addQueue(Product* product){
+void Machine::addQueue(Product* product) {
     queue.push_back(product);
 }
 
 int Machine::getQueueSize() const {
-    return queue.size();
+    return static_cast<int>(queue.size());
+}
+
+bool Machine::hasCurrentProduct() const {
+    return currentProduct != nullptr;
+}
+
+void Machine::setNextMachine(Machine* next) {
+    nextMachine = next;
+}
+
+Machine* Machine::getNextMachine() const {
+    return nextMachine;
 }
 
 int Machine::getMaxQueueSize() const {
     return maxQueueSize;
+}
+
+int Machine::getDisplayProcessTime() const {
+    return getProcessTime();
+}
+
+int Machine::getDisplayHealth() const {
+    return getHealth();
+}
+
+int Machine::getDisplayRemainingTime() const {
+    return getRemainingTime();
+}
+
+int Machine::getDisplayOutputNum() const {
+    return getOutputNum();
+}
+
+float Machine::getDisplayBreakdownChance() const {
+    return getBreakdownChance();
 }
 
 MachineState Machine::getState() const {
@@ -47,10 +81,10 @@ MachineState Machine::getState() const {
 
 std::string Machine::getStateName() const {
     switch (state) {
-        case IDLE: return "IDLE";
-        case PROCESSING: return "PROCESSING";
-        case BROKEN: return "BROKEN";
-        default: return "UNKNOWN";
+        case MACHINE_IDLE:       return "IDLE";
+        case MACHINE_PROCESSING: return "PROCESSING";
+        case MACHINE_BROKEN:     return "BROKEN";
+        default:                 return "UNKNOWN";
     }
 }
 
@@ -77,8 +111,6 @@ int Machine::getRepairTime() const {
 void Machine::setState(MachineState s) {
     state = s;
 }
-
-
 
 void Machine::setProcessTime(int t) {
     processTime = t;
@@ -111,11 +143,11 @@ void Machine::setCurrentProduct(Product* product) {
 }
 
 int Machine::getProgress() const {
-    if (getState() == PROCESSING) {
+    if (getState() == MACHINE_PROCESSING) {
         int procTime = getProcessTime();
         if (procTime == 0) return 0;
         return 100 - (100 * getRemainingTime()) / getProcessTime();
-    } else if (getState() == BROKEN) {
+    } else if (getState() == MACHINE_BROKEN) {
         int repTime = getRepairTime();
         if (repTime == 0) return 0;
         return 100 - (100 * getRemainingTime()) / getRepairTime();
