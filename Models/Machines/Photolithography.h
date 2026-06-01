@@ -3,10 +3,14 @@
 #include "Models/Machines/Machine.h"
 
 class Photolithography : public Machine {
+private:
+    Machine* nextMachine;
 public:
-    Photolithography() : Machine(15, 20, 0.10f) {}
+    Photolithography() : Machine(3, 5, 0.01f), nextMachine(nullptr) {}
     virtual void update(int tick) override;
     virtual std::string getInfo() const override;
     virtual void switchCase(Case c) override;
+    void setNextMachine(Machine* next);
+    Machine* getNextMachine() const { return nextMachine; }
 };
 #endif

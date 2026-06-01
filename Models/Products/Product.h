@@ -2,11 +2,14 @@
 #define PRODUCT_H
 #include <string>
 #include "Models/Root.h"
+#include "ProductListener.h"
 
 enum ProductType { RAW, PATTERNED, ETCHED, DOPED, CPU_TYPE };
-enum ProductState { IDLE, DELETED, DAMAGED, GENERATED };
+enum ProductState { IDLE, DELETED, DAMAGED, GENERATED, COMPLETED };
 
 class Product : public Root {
+private:
+    ProductListener* listener = nullptr;
 protected:
     ProductType type;
     ProductState state;
@@ -19,6 +22,7 @@ public:
     void setState(ProductState s);
     virtual std::string getTypeName() const = 0;
     virtual void update(int tick) override;
+    void setListener(ProductListener* newListener);
 };
 
 #endif

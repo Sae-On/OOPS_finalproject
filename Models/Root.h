@@ -4,8 +4,7 @@
 
 class Root {
     public:
-        Root();
-        virtual ~Root();
+        virtual ~Root()=default;
         virtual void update(int tick)=0;
 };
 #endif

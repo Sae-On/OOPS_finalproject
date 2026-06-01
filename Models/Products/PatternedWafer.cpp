@@ -2,9 +2,9 @@
 
 PatternedWafer::PatternedWafer() : Product(PATTERNED) {}
 
-PatternedWafer::PatternedWafer(const Product& other) {
+PatternedWafer::PatternedWafer(const Product& other) : Product(other) {
     if (other.getType() != RAW) {
-        //TODO: 파손 코드
+        state=DAMAGED;
     }
     type = PATTERNED;
 }

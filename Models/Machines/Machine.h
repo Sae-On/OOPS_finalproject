@@ -4,70 +4,50 @@
 #include <vector>
 #include "Models/Products/Product.h"
 #include "Models/Root.h"
+#include "ProgressQueue.h"
+#include "Durability.h"
+#include "MachineListener.h"
 
-enum MachineState { MACHINE_IDLE, MACHINE_PROCESSING, MACHINE_BROKEN};
+enum MachineState { IDLE, PROCESSING, BROKEN };
 enum Case { NORMAL, BOTTLENECK};
 
 class Machine : public Root {
 private:
     MachineState state;
     int processTime;
-    int health;
-    std::vector<Product*> queue;
     Product* currentProduct;
     int output_num;
     int remaining_time;
-    int repair_time;
-    float breakdown_chance;
-    int maxQueueSize = 6;
+    MachineListener* listener = nullptr;
 
+    
 protected:
-    // nextMachine을 기반 클래스로 이동: 하위 클래스의 코드 중복 제거
-    Machine* nextMachine = nullptr;
-
-    MachineState getState() const;
-    void setState(MachineState s);
-    int getProcessTime() const;
-    void setProcessTime(int t);
-    int getHealth() const;
-    void setHealth(int h);
-    int getOutputNum() const;
-    void setOutputNum(int n);
-    int getRemainingTime() const;
-    void setRemainingTime(int t);
-    int getRepairTime() const;
-    float getBreakdownChance() const;
-    Product* getCurrentProduct() const;
-    void setCurrentProduct(Product* product);
-
+    MachineState getState() const { return state; }
+    void setState(MachineState s) { state = s; }
+    int getProcessTime() const { return processTime; }
+    void setProcessTime(int t) { processTime = t; }
+    int getOutputNum() const { return output_num; }
+    void setOutputNum(int n) { output_num = n; }
+    Product* getCurrentProduct() const { return currentProduct; }
+    void setCurrentProduct(Product* product) { currentProduct = product; }
+    ProgressQueue queue;
+    Durability durability;
+    Product* generateProduct(Product* new_product);
+    void handleBrokenState();
+    void fetchNextProduct();
 public:
     Machine(int processT, int repairT, float breakdownC);
     virtual ~Machine();
-
-    virtual void update(int tick) = 0;
-    virtual std::string getInfo() const = 0;
-    virtual void switchCase(Case c) = 0;
+    virtual void update(int tick)=0;
+    virtual std::string getInfo() const=0;
+    virtual void switchCase(Case c)=0;
     virtual void breakdown();
-    virtual void repair();
-
-    // 큐 관리 (public: 외부에서 제품 투입 및 상태 조회 필요)
-    Product* popQueue();
-    void addQueue(Product* product);
-    int getQueueSize() const;
-    bool hasCurrentProduct() const;
-
-    // nextMachine 연결 (public: FactoryController에서 체인 구성)
-    void setNextMachine(Machine* next);
-    Machine* getNextMachine() const;
-
-    // 상태 조회 (UI 표시용 - public)
     std::string getStateName() const;
     int getProgress() const;
-    int getMaxQueueSize() const;
-    int getDisplayProcessTime() const;
-    int getDisplayHealth() const;
-    int getDisplayRemainingTime() const;
-    int getDisplayOutputNum() const;
-    float getDisplayBreakdownChance() const;
+    ProgressQueue& getQueue();
+    void repair();
+    void decreaseRemainingTime(int amount);
+    bool isRemainTime() const;
+    void setListener(MachineListener* newListener);
 };
 #endif

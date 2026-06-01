@@ -2,9 +2,9 @@
 
 DopedWafer::DopedWafer() : Product(DOPED) {}
 
-DopedWafer::DopedWafer(const Product& other) {
+DopedWafer::DopedWafer(const Product& other) : Product(other) {
     if (other.getType() != ETCHED) {
-        //TODO: 파손 코드
+        state=DAMAGED;
     }
     type = DOPED;
 }
