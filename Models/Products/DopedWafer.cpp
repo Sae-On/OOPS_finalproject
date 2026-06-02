@@ -1,4 +1,4 @@
-#include "Models/Products/DopedWafer.h"
+#include "DopedWafer.h"
 
 DopedWafer::DopedWafer() : Product(DOPED) {}
 

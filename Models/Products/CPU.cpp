@@ -1,4 +1,4 @@
-#include "Models/Products/CPU.h"
+#include "CPU.h"
 
 CPU::CPU() : Product(CPU_TYPE) {}
 

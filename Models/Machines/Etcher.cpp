@@ -1,8 +1,8 @@
-#include "Models/Machines/Etcher.h"
-#include "Models/Products/EtchedWafer.h"
+#include "Etcher.h"
+#include "../Products/EtchedWafer.h"
 
 void Etcher::update(int tick) {
-    if (getState() == BROKEN) {
+    if (getState() == MACHINE_BROKEN) {
         handleBrokenState();
         return;
     }
@@ -18,13 +18,13 @@ void Etcher::update(int tick) {
         decreaseRemainingTime(1);
         durability.decreaseHealth(1);
         if (!isRemainTime()) {
-            if (nextMachine && nextMachine->getQueue().getQueueSize() < nextMachine->getQueue().getMaxQueueSize()) {
+            if (getNextMachine() && getNextMachine()->getQueue().getQueueSize() < getNextMachine()->getQueue().getMaxQueueSize()) {
                 Product* done = getCurrentProduct();
                 Product* processedProduct = generateProduct(new EtchedWafer(*done));
                 setCurrentProduct(nullptr);
                 done->setState(DELETED);
 
-                nextMachine->getQueue().addQueue(processedProduct);
+                getNextMachine()->getQueue().addQueue(processedProduct);
                 
                 setOutputNum(getOutputNum() + 1);
                 if (durability.checkBreakdown()) {
@@ -33,15 +33,24 @@ void Etcher::update(int tick) {
             } else {
                 getCurrentProduct()->setState(DAMAGED);
                 setCurrentProduct(nullptr);
-                setState(IDLE);
+                setState(MACHINE_IDLE);
             }
         }
     }
     
 }
 
-std::string Etcher::getInfo() const {
-    return "Name: Etcher, State: " + getStateName() + ", Queue: " + std::to_string(queue.getQueueSize()) + "/" + std::to_string(queue.getMaxQueueSize()) + ", Output: " + std::to_string(getOutputNum()) + ", Process Time: " + std::to_string(getProcessTime()) + ", Health: " + std::to_string(durability.getHealth()) + "%, Progress: " + std::to_string(getProgress()) + "%";
+MachineData Etcher::getInfo() const {
+    MachineData data;
+    data.name="Etcher";
+    data.stateName=getStateName();
+    data.queueSize=queue.getQueueSize();
+    data.maxQueueSize=queue.getMaxQueueSize();
+    data.outputNum=getOutputNum();
+    data.processTime=getProcessTime();
+    data.health=durability.getHealth();
+    data.progress=getProgress();
+    return data;
 }
 
 void Etcher::switchCase(Case c) {
@@ -50,8 +59,4 @@ void Etcher::switchCase(Case c) {
     } else if (c == BOTTLENECK) {
         setProcessTime(15);
     }
-}
-
-void Etcher::setNextMachine(Machine* next) {
-    nextMachine = next;
 }

@@ -1,6 +1,6 @@
 #ifndef CPU_H
 #define CPU_H
-#include "Models/Products/Product.h"
+#include "Product.h"
 
 class CPU : public Product {
 public:

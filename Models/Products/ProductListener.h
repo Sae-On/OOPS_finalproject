@@ -1,6 +1,8 @@
 #ifndef PRODUCTLISTENER_H
 #define PRODUCTLISTENER_H
-#include "Models/Products/Product.h"
+
+class Product;
+enum ProductState : int;
 
 class ProductListener {
 public:

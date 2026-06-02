@@ -1,4 +1,4 @@
-#include "Models/Products/RawWafer.h"
+#include "RawWafer.h"
 
 RawWafer::RawWafer() : Product(RAW) {}
 

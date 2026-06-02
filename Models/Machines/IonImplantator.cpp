@@ -1,8 +1,8 @@
-#include "Models/Machines/IonImplantator.h"
-#include "Models/Products/DopedWafer.h"
+#include "IonImplantator.h"
+#include "../Products/DopedWafer.h"
 
 void IonImplantator::update(int tick) {
-    if (getState() == BROKEN) {
+    if (getState() == MACHINE_BROKEN) {
         handleBrokenState();
         return;
     }
@@ -17,14 +17,14 @@ void IonImplantator::update(int tick) {
     if (getCurrentProduct() != nullptr) {
         decreaseRemainingTime(1);
         durability.decreaseHealth(1);
-        if (!isRemainTime) {
-            if (nextMachine && nextMachine->getQueue().getQueueSize() < nextMachine->getQueue().getMaxQueueSize()) {
+        if (!isRemainTime()) {
+            if (getNextMachine() && getNextMachine()->getQueue().getQueueSize() < getNextMachine()->getQueue().getMaxQueueSize()) {
                 Product* done = getCurrentProduct();
                 Product* processedProduct = generateProduct(new DopedWafer(*done));
                 setCurrentProduct(nullptr);
                 done->setState(DELETED);
 
-                nextMachine->getQueue().addQueue(processedProduct);
+                getNextMachine()->getQueue().addQueue(processedProduct);
                 
                 setOutputNum(getOutputNum() + 1);
                 if (durability.checkBreakdown()) {
@@ -33,20 +33,25 @@ void IonImplantator::update(int tick) {
             } else {
                 getCurrentProduct()->setState(DAMAGED);
                 setCurrentProduct(nullptr);
-                setState(IDLE);
+                setState(MACHINE_IDLE);
             }
         }
     }
 }
 
-std::string IonImplantator::getInfo() const {
-    return "Name: IonImplantator, State: " + getStateName() + ", Queue: " + std::to_string(queue.getQueueSize()) + "/" + std::to_string(queue.getMaxQueueSize()) + ", Output: " + std::to_string(getOutputNum()) + ", Process Time: " + std::to_string(getProcessTime()) + ", Health: " + std::to_string(durability.getHealth()) + "%, Progress: " + std::to_string(getProgress()) + "%";
+MachineData IonImplantator::getInfo() const {
+    MachineData data;
+    data.name="IonImplantator";
+    data.stateName=getStateName();
+    data.queueSize=queue.getQueueSize();
+    data.maxQueueSize=queue.getMaxQueueSize();
+    data.outputNum=getOutputNum();
+    data.processTime=getProcessTime();
+    data.health=durability.getHealth();
+    data.progress=getProgress();
+    return data;
 }
 
 void IonImplantator::switchCase(Case c) {
     // no-op
-}
-
-void IonImplantator::setNextMachine(Machine* next) {
-    nextMachine = next;
 }

@@ -1,6 +1,6 @@
 #ifndef MACHINELISTENER_H
 #define MACHINELISTENER_H
-#include "Models/Products/Product.h"
+#include "../Products/Product.h"
 
 class MachineListener {
 public:

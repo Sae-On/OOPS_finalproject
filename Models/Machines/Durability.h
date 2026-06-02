@@ -14,6 +14,7 @@ public:
     void breakdown();
     int getHealth() const;
     int getRepairTime() const;
+    void reset();
 };
 
 #endif

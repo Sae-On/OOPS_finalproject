@@ -1,9 +1,9 @@
-#include "Models/Generator.h"
+#include "Generator.h"
 
 Generator::Generator():generate_time(3), remain_time(3), onElementGenerated(nullptr) {}
 
-void Generator::setGenerationCallback(void (*cb)(Root*)){
-    onElementGenerated=cb;
+void Generator::setGenerationCallback(std::function<void(Root*)> cb){
+    onElementGenerated=std::move(cb);
 }
 
 void Generator::update(int tick){
@@ -13,6 +13,12 @@ void Generator::update(int tick){
         RawWafer* new_wafer=new RawWafer();
         if (onElementGenerated){
             onElementGenerated(new_wafer);
+        } else {
+            delete new_wafer;
         }
     }
+}
+
+void Generator::reset() {
+    remain_time = generate_time;
 }

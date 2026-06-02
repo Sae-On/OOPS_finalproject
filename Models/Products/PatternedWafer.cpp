@@ -1,4 +1,4 @@
-#include "Models/Products/PatternedWafer.h"
+#include "PatternedWafer.h"
 
 PatternedWafer::PatternedWafer() : Product(PATTERNED) {}
 

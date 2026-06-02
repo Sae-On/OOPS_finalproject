@@ -1,6 +1,6 @@
 #ifndef PATTERNEDWAFER_H
 #define PATTERNEDWAFER_H
-#include "Models/Products/Product.h"
+#include "Product.h"
 
 class PatternedWafer : public Product {
 public:

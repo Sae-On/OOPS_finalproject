@@ -1,4 +1,4 @@
-#include "Models/Products/EtchedWafer.h"
+#include "EtchedWafer.h"
 
 EtchedWafer::EtchedWafer() : Product(ETCHED) {}
 

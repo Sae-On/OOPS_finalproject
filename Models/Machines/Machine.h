@@ -2,14 +2,26 @@
 #define MACHINE_H
 #include <string>
 #include <vector>
-#include "Models/Products/Product.h"
-#include "Models/Root.h"
-#include "ProgressQueue.h"
+#include "../Products/Product.h"
+#include "../Root.h"
+#include "../../ProgressQueue.h"
 #include "Durability.h"
 #include "MachineListener.h"
 
-enum MachineState { IDLE, PROCESSING, BROKEN };
-enum Case { NORMAL, BOTTLENECK};
+enum MachineState { MACHINE_IDLE, MACHINE_PROCESSING, MACHINE_BROKEN };
+enum Case { NORMAL, BOTTLENECK };
+
+typedef struct {
+    std::string name;
+    std::string stateName;
+    int queueSize;
+    int maxQueueSize;
+    int outputNum;
+    int processTime;
+    int remainingTime;
+    int health;
+    int progress;
+} MachineData;
 
 class Machine : public Root {
 private:
@@ -19,7 +31,7 @@ private:
     int output_num;
     int remaining_time;
     MachineListener* listener = nullptr;
-
+    Machine* nextMachine;
     
 protected:
     MachineState getState() const { return state; }
@@ -35,13 +47,15 @@ protected:
     Product* generateProduct(Product* new_product);
     void handleBrokenState();
     void fetchNextProduct();
+    Machine* getNextMachine() const { return nextMachine; }
 public:
     Machine(int processT, int repairT, float breakdownC);
     virtual ~Machine();
     virtual void update(int tick)=0;
-    virtual std::string getInfo() const=0;
+    virtual MachineData getInfo() const=0;
     virtual void switchCase(Case c)=0;
     virtual void breakdown();
+    void setNextMachine(Machine* next) { nextMachine = next; }
     std::string getStateName() const;
     int getProgress() const;
     ProgressQueue& getQueue();
@@ -49,5 +63,6 @@ public:
     void decreaseRemainingTime(int amount);
     bool isRemainTime() const;
     void setListener(MachineListener* newListener);
+    void reset();
 };
 #endif

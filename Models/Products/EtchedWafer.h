@@ -1,6 +1,6 @@
 #ifndef ETCHEDWAFER_H
 #define ETCHEDWAFER_H
-#include "Models/Products/Product.h"
+#include "Product.h"
 
 class EtchedWafer : public Product {
 public:

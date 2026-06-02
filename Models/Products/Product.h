@@ -1,11 +1,11 @@
 #ifndef PRODUCT_H
 #define PRODUCT_H
 #include <string>
-#include "Models/Root.h"
+#include "../Root.h"
 #include "ProductListener.h"
 
 enum ProductType { RAW, PATTERNED, ETCHED, DOPED, CPU_TYPE };
-enum ProductState { IDLE, DELETED, DAMAGED, GENERATED, COMPLETED };
+enum ProductState : int { IDLE, DELETED, DAMAGED, GENERATED, COMPLETED };
 
 class Product : public Root {
 private:

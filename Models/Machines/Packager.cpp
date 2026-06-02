@@ -1,8 +1,8 @@
-#include "Models/Machines/Packager.h"
-#include "Models/Products/CPU.h"
+#include "Packager.h"
+#include "../Products/CPU.h"
 
 void Packager::update(int tick) {
-    if (getState() == BROKEN) {
+    if (getState() == MACHINE_BROKEN) {
         handleBrokenState();
         return;
     }
@@ -29,8 +29,17 @@ void Packager::update(int tick) {
     }
 }
 
-std::string Packager::getInfo() const {
-    return "Name: Packager, State: " + getStateName() + ", Queue: " + std::to_string(queue.getQueueSize()) + "/" + std::to_string(queue.getMaxQueueSize()) + ", Output: " + std::to_string(getOutputNum()) + ", Process Time: " + std::to_string(getProcessTime()) + ", Health: " + std::to_string(durability.getHealth()) + "%, Progress: " + std::to_string(getProgress()) + "%";
+MachineData Packager::getInfo() const {
+    MachineData data;
+    data.name="Packager";
+    data.stateName=getStateName();
+    data.queueSize=queue.getQueueSize();
+    data.maxQueueSize=queue.getMaxQueueSize();
+    data.outputNum=getOutputNum();
+    data.processTime=getProcessTime();
+    data.health=durability.getHealth();
+    data.progress=getProgress();
+    return data;
 }
 
 void Packager::switchCase(Case c) {

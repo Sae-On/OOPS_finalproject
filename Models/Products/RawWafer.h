@@ -1,6 +1,6 @@
 #ifndef RAWWAFER_H
 #define RAWWAFER_H
-#include "Models/Products/Product.h"
+#include "Product.h"
 
 class RawWafer : public Product {
 public:
