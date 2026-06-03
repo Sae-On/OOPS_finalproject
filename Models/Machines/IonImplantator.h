@@ -6,9 +6,10 @@ class IonImplantator : public Machine {
 private:
     Machine* nextMachine;
 public:
-    IonImplantator() : Machine(5,6,0.01f), nextMachine(nullptr) {}
+    IonImplantator() : Machine(5,6,0.01f), nextMachine(nullptr) {
+        setCaseProcessTimes(5, 5);
+    }
     virtual void update(int tick) override;
     virtual MachineData getInfo() const override;
-    virtual void switchCase(Case c) override;
 };
 #endif

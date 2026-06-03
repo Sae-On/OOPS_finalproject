@@ -41,7 +41,3 @@ MachineData Packager::getInfo() const {
     data.progress=getProgress();
     return data;
 }
-
-void Packager::switchCase(Case c) {
-    // no-op
-}

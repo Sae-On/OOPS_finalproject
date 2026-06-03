@@ -53,7 +53,3 @@ MachineData Photolithography::getInfo() const {
     return data;
 }
 
-void Photolithography::switchCase(Case c) {
-    // no-op
-}
-

@@ -11,7 +11,7 @@ ProductType Product::getType() const {
 }
 
 void Product::update(int tick) {
-    if ((state==DAMAGED || state==DELETED || state==COMPLETED) && listener) {
+    if ((state==DAMAGED or state==DELETED or state==COMPLETED) and listener) {
         listener->deleteProduct(this, getState());
         listener=nullptr;
     }

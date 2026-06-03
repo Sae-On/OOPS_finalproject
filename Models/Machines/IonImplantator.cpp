@@ -51,7 +51,3 @@ MachineData IonImplantator::getInfo() const {
     data.progress=getProgress();
     return data;
 }
-
-void IonImplantator::switchCase(Case c) {
-    // no-op
-}

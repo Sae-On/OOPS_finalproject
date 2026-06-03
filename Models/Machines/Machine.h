@@ -44,6 +44,13 @@ protected:
     void setCurrentProduct(Product* product) { currentProduct = product; }
     ProgressQueue queue;
     Durability durability;
+    int normalProcessTime;
+    int bottleneckProcessTime;
+    void setCaseProcessTimes(int normalTime, int bottleneckTime) {
+        normalProcessTime = normalTime;
+        bottleneckProcessTime = bottleneckTime;
+    }
+    int getProcessTimeForCase(Case c) const;
     Product* generateProduct(Product* new_product);
     void handleBrokenState();
     void fetchNextProduct();
@@ -53,7 +60,7 @@ public:
     virtual ~Machine();
     virtual void update(int tick)=0;
     virtual MachineData getInfo() const=0;
-    virtual void switchCase(Case c)=0;
+    virtual void switchCase(Case c);
     virtual void breakdown();
     void setNextMachine(Machine* next) { nextMachine = next; }
     std::string getStateName() const;

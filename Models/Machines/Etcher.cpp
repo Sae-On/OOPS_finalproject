@@ -52,11 +52,3 @@ MachineData Etcher::getInfo() const {
     data.progress=getProgress();
     return data;
 }
-
-void Etcher::switchCase(Case c) {
-    if (c == NORMAL) {
-        setProcessTime(4);
-    } else if (c == BOTTLENECK) {
-        setProcessTime(15);
-    }
-}

@@ -1,10 +1,14 @@
 #include "Machine.h"
 
 Machine::Machine(int processT, int repairT, float breakdownC)
-    : state(MACHINE_IDLE), processTime(processT), output_num(0), remaining_time(0), currentProduct(nullptr), durability(breakdownC, repairT) {}
+    : state(MACHINE_IDLE), processTime(processT), output_num(0), remaining_time(0), currentProduct(nullptr), durability(breakdownC, repairT), normalProcessTime(processT), bottleneckProcessTime(processT) {}
 
 Machine::~Machine() {
     delete currentProduct;
+}
+
+void Machine::switchCase(Case c) {
+    setProcessTime(getProcessTimeForCase(c));
 }
 
 void Machine::breakdown() {
@@ -44,7 +48,7 @@ void Machine::setListener(MachineListener* newListener){
 }
 
 Product* Machine::generateProduct(Product* new_product){
-    if (new_product && listener){
+    if (new_product and listener){
         listener->onProductGenerated(new_product);
     }
     return new_product;
@@ -86,4 +90,10 @@ void Machine::reset() {
     output_num = 0;
     remaining_time = 0;
     durability.reset();
+}
+int Machine::getProcessTimeForCase(Case c) const {
+    if (c == BOTTLENECK) {
+        return bottleneckProcessTime;
+    }
+    return normalProcessTime;
 }
