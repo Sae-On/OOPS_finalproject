@@ -12,6 +12,7 @@ public:
     void addQueue(Product* product);
     int getQueueSize() const;
     int getMaxQueueSize() const;
+    void reset();
 };
 
 #endif

@@ -21,6 +21,7 @@ typedef struct {
     int remainingTime;
     int health;
     int progress;
+    float breakdownChance;
 } MachineData;
 
 class Machine : public Root {
@@ -69,6 +70,7 @@ public:
     void repair();
     void decreaseRemainingTime(int amount);
     bool isRemainTime() const;
+    int getRemainingTime() const { return remaining_time; }
     void setListener(MachineListener* newListener);
     void reset();
 };

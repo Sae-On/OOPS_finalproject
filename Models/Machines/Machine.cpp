@@ -48,7 +48,7 @@ void Machine::setListener(MachineListener* newListener){
 }
 
 Product* Machine::generateProduct(Product* new_product){
-    if (new_product and listener){
+    if (new_product && listener){
         listener->onProductGenerated(new_product);
     }
     return new_product;
@@ -90,6 +90,7 @@ void Machine::reset() {
     output_num = 0;
     remaining_time = 0;
     durability.reset();
+    queue.reset();
 }
 int Machine::getProcessTimeForCase(Case c) const {
     if (c == BOTTLENECK) {

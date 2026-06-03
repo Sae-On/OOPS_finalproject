@@ -15,6 +15,7 @@ public:
     int getHealth() const;
     int getRepairTime() const;
     void reset();
+    float getBreakdownChance() const { return breakdown_chance; }
 };
 
 #endif

@@ -21,6 +21,7 @@ void Packager::update(int tick) {
             Product* done = getCurrentProduct();
             setCurrentProduct(nullptr);
             done->setState(DELETED);
+            generateProduct(new CPU(*done));
             setOutputNum(getOutputNum() + 1);
             if (durability.checkBreakdown()) {
                 breakdown();
@@ -37,7 +38,9 @@ MachineData Packager::getInfo() const {
     data.maxQueueSize=queue.getMaxQueueSize();
     data.outputNum=getOutputNum();
     data.processTime=getProcessTime();
+    data.remainingTime=getRemainingTime();
     data.health=durability.getHealth();
     data.progress=getProgress();
+    data.breakdownChance=durability.getBreakdownChance();
     return data;
 }

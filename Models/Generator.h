@@ -13,5 +13,6 @@ public:
     void update(int tick) override;
     void setGenerationCallback(std::function<void(Root*)> cb);
     void reset();
+    void generate();
 };
 #endif

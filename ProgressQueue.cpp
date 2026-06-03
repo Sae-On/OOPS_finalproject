@@ -23,3 +23,7 @@ int ProgressQueue::getQueueSize() const {
 int ProgressQueue::getMaxQueueSize() const {
     return maxQueueSize;
 }
+
+void ProgressQueue::reset() {
+    queue.clear();
+}

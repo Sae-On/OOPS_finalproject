@@ -7,12 +7,13 @@
 #include <vector>
 
 #include "imgui.h"
-#include "imgui_impl_glfw.h"
+#include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
 
-#include <GLFW/glfw3.h>
+#include <SDL.h>
+#include <SDL_opengl.h>
 
-#include "FactoryController.h"
+#include "Bridge.h"
 
 // ─────────────────────────────────────────────────────────────
 // View Data: 백엔드 -> UI 전달용 데이터 구조체
@@ -77,7 +78,7 @@ static WorkState StateFromString(const std::string& s) {
     return WorkState::Idle;
 }
 
-static ViewportViewData BuildViewData(const FactoryController& fc, int selectedMachine) {
+static ViewportViewData BuildViewData(const Bridge& bridge, int selectedMachine) {
     static const char* kInputs[]  = {"RawWafer",      "PatternedWafer", "EtchedWafer",  "DopedWafer"};
     static const char* kOutputs[] = {"PatternedWafer", "EtchedWafer",   "DopedWafer",   "CPU"};
 
@@ -87,17 +88,16 @@ static ViewportViewData BuildViewData(const FactoryController& fc, int selectedM
 
     for (int i = 0; i < 4; ++i) {
         MachineStatusViewData& m = vd.machines[i];
-        m.name          = fc.getMachineName(i);
+        m.name          = bridge.getMachineName(i);
         m.inputProduct  = kInputs[i];
         m.outputProduct = kOutputs[i];
-        m.progress      = fc.getMachineProgress(i) / 100.0f;
-        m.durability    = static_cast<float>(fc.getMachineHealth(i));
-        m.defectRate    = fc.getMachineBreakdownChance(i) * 100.0f;
-        m.processTime   = static_cast<float>(fc.getMachineProcessTime(i));
-        m.remainingTime = static_cast<float>(fc.getMachineRemainingTime(i));
-        m.waitingCount  = fc.getMachineQueueSize(i);
-        m.state         = StateFromString(fc.getMachineState(i));
-        m.powerOn       = fc.getMachinePower(i);
+        m.progress      = bridge.getMachineProgress(i) / 100.0f;
+        m.durability    = static_cast<float>(bridge.getMachineHealth(i));
+        m.defectRate    = bridge.getMachineBreakdownChance(i) * 100.0f;
+        m.processTime   = static_cast<float>(bridge.getMachineProcessTime(i));
+        m.remainingTime = static_cast<float>(bridge.getMachineRemainingTime(i));
+        m.waitingCount  = bridge.getMachineQueueSize(i);
+        m.state         = StateFromString(bridge.getMachineState(i));
     }
 
     static const ImVec4 kColors[5] = {
@@ -116,11 +116,11 @@ static ViewportViewData BuildViewData(const FactoryController& fc, int selectedM
     };
     static const int kCounts[5] = {0}; // placeholder per-frame computed below
 
-    vd.products[0] = {ProductKind::RawWafer,      "RawWafer",      fc.getRawWaferCount(),       0, kColors[0]};
-    vd.products[1] = {ProductKind::PatternedWafer, "PatternedWafer",fc.getPatternedWaferCount(), 0, kColors[1]};
-    vd.products[2] = {ProductKind::EtchedWafer,    "EtchedWafer",   fc.getEtchedWaferCount(),    0, kColors[2]};
-    vd.products[3] = {ProductKind::DopedWafer,     "DopedWafer",    fc.getDopedWaferCount(),     0, kColors[3]};
-    vd.products[4] = {ProductKind::CPU,            "CPU",           fc.getFinishedCPUCount(),    fc.getDefectiveCount(), kColors[4]};
+    vd.products[0] = {ProductKind::RawWafer,      "RawWafer",      bridge.getRawWaferCount(),       0, kColors[0]};
+    vd.products[1] = {ProductKind::PatternedWafer, "PatternedWafer",bridge.getPatternedWaferCount(), 0, kColors[1]};
+    vd.products[2] = {ProductKind::EtchedWafer,    "EtchedWafer",   bridge.getEtchedWaferCount(),    0, kColors[2]};
+    vd.products[3] = {ProductKind::DopedWafer,     "DopedWafer",    bridge.getDopedWaferCount(),     0, kColors[3]};
+    vd.products[4] = {ProductKind::CPU,            "CPU",           bridge.getFinishedCPUCount(),    bridge.getDefectiveCount(), kColors[4]};
 
     return vd;
 }
@@ -416,7 +416,6 @@ public:
 class CpuFactoryApp {
 public:
     void Render() {
-        // ① 시뮬레이션 업데이트 (틱당 N번)
         static float accumulator = 0.0f;
         accumulator += ImGui::GetIO().DeltaTime;
         const float tickInterval = 0.1f; // 10 ticks/sec
@@ -425,7 +424,6 @@ public:
             accumulator -= tickInterval;
         }
 
-        // ② 백엔드 상태 -> UI 뷰 데이터 변환
         ViewportViewData vd = BuildViewData(controller_, request_.selectedMachineIndex);
 
         // ③ UI 요청 처리
@@ -435,16 +433,8 @@ public:
         if (request_.requestAddRawWafer) { controller_.addRawWafer(request_.rawWaferAmount);  request_.requestAddRawWafer = false; }
         if (request_.requestRepair)      { controller_.repairMachine(request_.selectedMachineIndex); request_.requestRepair = false; }
         if (request_.requestPowerToggle) {
-            controller_.setPower(request_.selectedMachineIndex, request_.machinePowerOn[request_.selectedMachineIndex]);
             request_.requestPowerToggle = false;
         }
-
-        // ④ machinePowerOn 동기화 (UI 체크박스 상태를 백엔드에서 읽어옴)
-        for (int i = 0; i < 4; ++i) {
-            request_.machinePowerOn[i] = controller_.getMachinePower(i);
-        }
-
-        // ⑤ 각 UI 창 렌더링
         controlPanel_.Render(request_, vd, controller_.isRunning());
         viewport_.Render(vd);
         productStatus_.Render(vd.products);
@@ -454,7 +444,7 @@ public:
     bool IsDarkMode() const { return true; }
 
 private:
-    FactoryController    controller_;
+    Bridge               controller_;
     ControlPanelRequest  request_;
     ControlPanelWindow   controlPanel_;
     MachineStatusWindow  machineStatus_;
@@ -466,17 +456,39 @@ private:
 // main
 // ─────────────────────────────────────────────────────────────
 
-int main() {
-    if (!glfwInit()) return -1;
+int SDL_main(int argc, char** argv) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
+        return -1;
+    }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-    GLFWwindow* window = glfwCreateWindow(1280, 780, "CPU Factory Simulator", NULL, NULL);
-    if (!window) { glfwTerminate(); return -1; }
+    SDL_Window* window = SDL_CreateWindow(
+        "CPU Factory Simulator",
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        1280,
+        780,
+        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
+    );
+    if (!window) {
+        SDL_Quit();
+        return -1;
+    }
 
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
+    SDL_GLContext gl_context = SDL_GL_CreateContext(window);
+    if (!gl_context) {
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+
+    SDL_GL_MakeCurrent(window, gl_context);
+    SDL_GL_SetSwapInterval(1);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -491,16 +503,27 @@ int main() {
     style.GrabRounding   = 5.0f;
     style.WindowPadding  = ImVec2(14.0f, 12.0f);
 
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
     ImGui_ImplOpenGL3_Init("#version 120");
 
     CpuFactoryApp app;
+    bool done = false;
 
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
+    while (!done) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            ImGui_ImplSDL2_ProcessEvent(&event);
+            if (event.type == SDL_QUIT) {
+                done = true;
+            }
+            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE &&
+                event.window.windowID == SDL_GetWindowID(window)) {
+                done = true;
+            }
+        }
 
         ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
         app.Render();
@@ -509,14 +532,15 @@ int main() {
         glClearColor(0.10f, 0.11f, 0.13f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        glfwSwapBuffers(window);
+        SDL_GL_SwapWindow(window);
     }
 
     ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    SDL_GL_DeleteContext(gl_context);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 
     return 0;
 }

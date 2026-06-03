@@ -74,7 +74,7 @@ void Controller::deleteProduct(Product* product, ProductState state){
     products_to_delete.push_back(product);
 }
 
-void Controller::updateAll(){
+void Controller::update(){
     if (!running) return;
     if (generator) {
         generator->update(tick);
@@ -103,8 +103,8 @@ void Controller::updateAll(){
     tick++;
 }
 
-MachineData Controller::getMachineInfo(int i){
-    if (i>=0 and i<machines.size()){
+MachineData Controller::getMachineInfo(int i) const{
+    if (i>=0 && i<machines.size()){
         if (!machines[i]) return {"UNKNOWN","UNKNOWN",0,0,0,0,0,0,0};
         return machines[i]->getInfo();
     } else {
@@ -140,5 +140,20 @@ void Controller::updateCase(Case c){
     curr_case=c;
     for (Machine* m : machines){
         if (m) m->switchCase(c);
+    }
+}
+
+void Controller::addRawWafer(int count) {
+    if (generator) {
+        for (int i = 0; i < count; ++i) {
+            generator->generate();
+        }
+    }
+}
+
+void Controller::repairMachine(int index) {
+    if (index < 0 || index >= machines.size()) return;
+    if (machines[index]) {
+        machines[index]->repair();
     }
 }

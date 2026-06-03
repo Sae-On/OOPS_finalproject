@@ -24,13 +24,17 @@ public:
     void setGenerator(Generator* new_generator);
     void onProductGenerated(Product* newProduct);
     void deleteProduct(Product* product, ProductState state);
-    void updateAll();
-    MachineData getMachineInfo(int i);
+    void update();
+    MachineData getMachineInfo(int i) const;
     void start();
     void pause();
     bool isRunning() const { return running; }
     void reset();
     void updateCase(Case c);
+    void addRawWafer(int count);
+    void repairMachine(int index);
+    int getCompletedCount() const { return completed_products_num; }
+    int getLostCount() const { return lost_products_num; }
 };
 
 #endif
