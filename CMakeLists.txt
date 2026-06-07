@@ -14,6 +14,7 @@ set(SOURCES
 
     ${MODELS_DIR}/Root.cpp
     ${MODELS_DIR}/Machines/Machine.cpp
+    ${MODELS_DIR}/Machines/Durability.cpp
     ${MODELS_DIR}/Machines/Photolithography.cpp
     ${MODELS_DIR}/Machines/Etcher.cpp
     ${MODELS_DIR}/Machines/IonImplantator.cpp
@@ -24,6 +25,7 @@ set(SOURCES
     ${MODELS_DIR}/Products/EtchedWafer.cpp
     ${MODELS_DIR}/Products/DopedWafer.cpp
     ${MODELS_DIR}/Products/CPU.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ProgressQueue.cpp
 
     ${IMGUI_DIR}/imgui.cpp
     ${IMGUI_DIR}/imgui_demo.cpp

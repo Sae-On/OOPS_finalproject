@@ -1,56 +1,73 @@
-#include "Etcher.h"
-#include "../Products/EtchedWafer.h"
+#include "Models/Machines/Etcher.h"
+#include "Models/Products/EtchedWafer.h"
+#include <cstdlib>
 
 void Etcher::update(int tick) {
     if (getState() == MACHINE_BROKEN) {
-        handleBrokenState();
+        setRemainingTime(getRemainingTime() - 1);
+        if (getRemainingTime() <= 0) {
+            repair();
+        }
         return;
     }
 
     if (getCurrentProduct() == nullptr) {
-        fetchNextProduct();
-        if (getCurrentProduct()==nullptr){
+        setCurrentProduct(popQueue());
+        if (getCurrentProduct()) {
+            setState(MACHINE_PROCESSING);
+            setRemainingTime(getProcessTime());
+        } else {
+            setState(MACHINE_IDLE);
             return;
         }
     }
 
     if (getCurrentProduct() != nullptr) {
-        decreaseRemainingTime(1);
-        durability.decreaseHealth(1);
-        if (!isRemainTime()) {
-            if (getNextMachine() && getNextMachine()->getQueue().getQueueSize() < getNextMachine()->getQueue().getMaxQueueSize()) {
-                Product* done = getCurrentProduct();
-                Product* processedProduct = generateProduct(new EtchedWafer(*done));
-                setCurrentProduct(nullptr);
-                done->setState(DELETED);
+        setRemainingTime(getRemainingTime() - 1);
+        setHealth(getHealth() - 1);
 
-                getNextMachine()->getQueue().addQueue(processedProduct);
-                
+        if (getRemainingTime() <= 0) {
+            if (nextMachine && nextMachine->getQueueSize() < nextMachine->getMaxQueueSize()) {
+                Product* done = getCurrentProduct();
+                bool wasDamaged = (done->getState() == DAMAGED);
+                Product* processed = new EtchedWafer(*done);
+                delete done; // 메모리 누수 수정
+
+                if (wasDamaged || (std::rand() / static_cast<float>(RAND_MAX)) < getBreakdownChance()) {
+                    processed->setState(DAMAGED);
+                }
+
+                setCurrentProduct(nullptr);
+                nextMachine->addQueue(processed);
                 setOutputNum(getOutputNum() + 1);
-                if (durability.checkBreakdown()) {
+
+                if ((std::rand() / static_cast<float>(RAND_MAX)) < getBreakdownChance() || getHealth() <= 0) {
+                    setRemainingTime(getRepairTime());
                     breakdown();
                 }
             } else {
-                getCurrentProduct()->setState(DAMAGED);
+                delete getCurrentProduct(); // 큐 가득 참: 폐기 및 메모리 해제
+                lost_product_num++;
                 setCurrentProduct(nullptr);
                 setState(MACHINE_IDLE);
             }
         }
     }
-    
 }
 
-MachineData Etcher::getInfo() const {
-    MachineData data;
-    data.name="Etcher";
-    data.stateName=getStateName();
-    data.queueSize=queue.getQueueSize();
-    data.maxQueueSize=queue.getMaxQueueSize();
-    data.outputNum=getOutputNum();
-    data.processTime=getProcessTime();
-    data.remainingTime=getRemainingTime();
-    data.health=durability.getHealth();
-    data.progress=getProgress();
-    data.breakdownChance=durability.getBreakdownChance();
-    return data;
+std::string Etcher::getInfo() const {
+    return "Name: Etcher, State: " + getStateName()
+         + ", Queue: " + std::to_string(getQueueSize()) + "/" + std::to_string(getMaxQueueSize())
+         + ", Output: " + std::to_string(getOutputNum())
+         + ", ProcessTime: " + std::to_string(getProcessTime())
+         + ", Health: " + std::to_string(getHealth())
+         + "%, Progress: " + std::to_string(getProgress()) + "%";
+}
+
+void Etcher::switchCase(Case c) {
+    if (c == NORMAL) {
+        setProcessTime(4);
+    } else if (c == BOTTLENECK) {
+        setProcessTime(15);
+    }
 }
