@@ -48,7 +48,7 @@ void Machine::setListener(MachineListener* newListener){
 }
 
 Product* Machine::generateProduct(Product* new_product){
-    if (new_product and listener){
+    if (new_product && listener){
         listener->onProductGenerated(new_product);
     }
     return new_product;

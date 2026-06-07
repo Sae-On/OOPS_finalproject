@@ -106,7 +106,7 @@ void Controller::update(){
 }
 
 MachineData Controller::getMachineInfo(int i) const{
-    if (i>=0 and i<machines.size()){
+    if (i>=0 && i<machines.size()){
         if (!machines[i]) return {"UNKNOWN","UNKNOWN",0,0,0,0,0,0,0};
         return machines[i]->getInfo();
     } else {
