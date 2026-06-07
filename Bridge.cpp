@@ -74,3 +74,6 @@ void Bridge::pause() {
 void Bridge::reset() {
     controller->reset();
 }
+const std::vector<LogEntry>& Bridge::getLogEntries() const {
+    return controller->getLogger().getLogs();
+}

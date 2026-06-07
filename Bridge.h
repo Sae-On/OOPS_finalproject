@@ -1,3 +1,5 @@
+#ifndef BRIDGE_H
+#define BRIDGE_H
 #include "Controller.h"
 class Bridge {
 private:
@@ -27,4 +29,6 @@ public:
     bool isRunning() const { return controller->isRunning(); }
     void reset();
     void update() { controller->update(); }
+    const std::vector<LogEntry>& getLogEntries() const;
 };
+#endif

@@ -63,10 +63,12 @@ void Controller::deleteProduct(Product* product, ProductState state){
     {
     case DAMAGED:
         lost_products_num++;
+        log(LOG_ERROR, "System", "DEFECT: Product DAMAGED and safely disposed.");
         break;
     
     case COMPLETED:
         completed_products_num++;
+        log(LOG_INFO, "System", "SUCCESS: CPU completed and packaged for shipping! Total: " + std::to_string(completed_products_num));
         break;  
     default:
         break;
@@ -104,7 +106,7 @@ void Controller::update(){
 }
 
 MachineData Controller::getMachineInfo(int i) const{
-    if (i>=0 && i<machines.size()){
+    if (i>=0 and i<machines.size()){
         if (!machines[i]) return {"UNKNOWN","UNKNOWN",0,0,0,0,0,0,0};
         return machines[i]->getInfo();
     } else {
@@ -141,6 +143,7 @@ void Controller::updateCase(Case c){
     for (Machine* m : machines){
         if (m) m->switchCase(c);
     }
+    log(LOG_WARNING, "System", "Factory Scenario updated to " + std::string(c == BOTTLENECK ? "BOTTLENECK" : "NORMAL"));
 }
 
 void Controller::addRawWafer(int count) {
@@ -149,6 +152,7 @@ void Controller::addRawWafer(int count) {
             generator->generate();
         }
     }
+    log(LOG_INFO, "Generator", std::to_string(count) + " RawWafers queued by User.");
 }
 
 void Controller::repairMachine(int index) {

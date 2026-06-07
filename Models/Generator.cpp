@@ -1,6 +1,6 @@
 #include "Generator.h"
 
-Generator::Generator():generate_time(5), remain_time(5), onElementGenerated(nullptr) {}
+Generator::Generator():generate_time(4), remain_time(4), onElementGenerated(nullptr) {}
 
 void Generator::setGenerationCallback(std::function<void(Root*)> cb){
     onElementGenerated=std::move(cb);

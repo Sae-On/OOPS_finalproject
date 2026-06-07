@@ -4,6 +4,7 @@
 #include "Models/Machines/Machine.h"
 #include "Models/Products/Product.h"
 #include "Models/Generator.h"
+#include "Logger.h"
 #include <vector>
 
 class Controller : public MachineListener, public ProductListener {
@@ -18,6 +19,7 @@ private:
     int completed_products_num=0;
     bool running=false;
     Case curr_case=NORMAL;
+    Logger logger;
 public:
     ~Controller();
     void addMachine(Machine* new_m);
@@ -35,6 +37,11 @@ public:
     void repairMachine(int index);
     int getCompletedCount() const { return completed_products_num; }
     int getLostCount() const { return lost_products_num; }
+    void log(LogLevel level, const std::string& source, const std::string& message) {
+        logger.addLog(tick, level, source, message);
+    }
+    const Logger& getLogger() const { return logger; }
+    Logger& getLogger() { return logger; }
 };
 
 #endif
