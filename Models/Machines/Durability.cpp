@@ -20,7 +20,7 @@ int Durability::getHealth() const{
 }
 
 void Durability::repair(){
-    health = health > 70 ? 100 : health + 30;
+    health = health > 70 ? 100 : health + 50;
 }
 
 int Durability::getRepairTime() const{

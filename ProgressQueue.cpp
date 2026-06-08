@@ -9,9 +9,6 @@ Product* ProgressQueue::popQueue() {
 }
 
 ProgressQueue::~ProgressQueue() {
-    for (Product* p : queue) {
-        delete p;
-    }
     queue.clear();
 }
 

@@ -7,12 +7,13 @@
 #include <vector>
 
 #include "imgui.h"
-#include "imgui_impl_glfw.h"
+#include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
 
-#include <GLFW/glfw3.h>
+#include <SDL.h>
+#include <SDL_opengl.h>
 
-#include "FactoryController.h"
+#include "Bridge.h"
 
 // ─────────────────────────────────────────────────────────────
 // View Data: 백엔드 -> UI 전달용 데이터 구조체
@@ -33,12 +34,8 @@ struct ControlPanelRequest {
     bool requestAddRawWafer    = false;
     bool requestRepair         = false;
     bool requestPowerToggle    = false;
-    bool requestForceBreak     = false;
-    bool requestScenarioChange = false;
     int  selectedMachineIndex  = 0;
     int  rawWaferAmount        = 5;
-    int  selectedScenario      = 0;  // 0: Normal, 1: Bottleneck
-    float speedMultiplier      = 1.0f;
     std::array<bool, 4> machinePowerOn = {true, true, true, true};
 };
 
@@ -65,14 +62,10 @@ struct ProductStatusViewData {
 };
 
 struct ViewportViewData {
-    int activeMachineIndex    = 0;
-    int activeProductIndex    = 0;
-    int currentTick           = 0;
-    int totalBreakdownCount   = 0;
-    int totalLostProducts     = 0;
+    int activeMachineIndex = 0;
+    int activeProductIndex = 0;
     std::array<MachineStatusViewData, 4> machines;
     std::array<ProductStatusViewData, 5> products;
-    std::vector<std::string> eventLogs;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -85,31 +78,26 @@ static WorkState StateFromString(const std::string& s) {
     return WorkState::Idle;
 }
 
-static ViewportViewData BuildViewData(FactoryController& fc, int selectedMachine) {
+static ViewportViewData BuildViewData(const Bridge& bridge, int selectedMachine) {
     static const char* kInputs[]  = {"RawWafer",      "PatternedWafer", "EtchedWafer",  "DopedWafer"};
     static const char* kOutputs[] = {"PatternedWafer", "EtchedWafer",   "DopedWafer",   "CPU"};
 
     ViewportViewData vd;
-    vd.activeMachineIndex  = selectedMachine;
-    vd.activeProductIndex  = std::clamp(selectedMachine, 0, 4);
-    vd.currentTick         = fc.getTick();
-    vd.totalBreakdownCount = fc.getTotalBreakdownCount();
-    vd.totalLostProducts   = fc.getLostProductCount();
-    vd.eventLogs           = fc.popEventLogs();
+    vd.activeMachineIndex = selectedMachine;
+    vd.activeProductIndex = std::clamp(selectedMachine, 0, 4);
 
     for (int i = 0; i < 4; ++i) {
         MachineStatusViewData& m = vd.machines[i];
-        m.name          = fc.getMachineName(i);
+        m.name          = bridge.getMachineName(i);
         m.inputProduct  = kInputs[i];
         m.outputProduct = kOutputs[i];
-        m.progress      = fc.getMachineProgress(i) / 100.0f;
-        m.durability    = static_cast<float>(fc.getMachineHealth(i));
-        m.defectRate    = fc.getMachineBreakdownChance(i) * 100.0f;
-        m.processTime   = static_cast<float>(fc.getMachineProcessTime(i));
-        m.remainingTime = static_cast<float>(fc.getMachineRemainingTime(i));
-        m.waitingCount  = fc.getMachineQueueSize(i);
-        m.state         = StateFromString(fc.getMachineState(i));
-        m.powerOn       = fc.getMachinePower(i);
+        m.progress      = bridge.getMachineProgress(i) / 100.0f;
+        m.durability    = static_cast<float>(bridge.getMachineHealth(i));
+        m.defectRate    = bridge.getMachineBreakdownChance(i) * 100.0f;
+        m.processTime   = static_cast<float>(bridge.getMachineProcessTime(i));
+        m.remainingTime = static_cast<float>(bridge.getMachineRemainingTime(i));
+        m.waitingCount  = bridge.getMachineQueueSize(i);
+        m.state         = StateFromString(bridge.getMachineState(i));
     }
 
     static const ImVec4 kColors[5] = {
@@ -119,12 +107,20 @@ static ViewportViewData BuildViewData(FactoryController& fc, int selectedMachine
         {0.88f, 0.72f, 0.36f, 1.0f},
         {0.45f, 0.74f, 0.58f, 1.0f},
     };
+    static const char* kProductNames[5] = {
+        "RawWafer", "PatternedWafer", "EtchedWafer", "DopedWafer", "CPU"
+    };
+    static const ProductKind kKinds[5] = {
+        ProductKind::RawWafer, ProductKind::PatternedWafer,
+        ProductKind::EtchedWafer, ProductKind::DopedWafer, ProductKind::CPU
+    };
+    static const int kCounts[5] = {0}; // placeholder per-frame computed below
 
-    vd.products[0] = {ProductKind::RawWafer,      "RawWafer",      fc.getRawWaferCount(),       0, kColors[0]};
-    vd.products[1] = {ProductKind::PatternedWafer, "PatternedWafer",fc.getPatternedWaferCount(), 0, kColors[1]};
-    vd.products[2] = {ProductKind::EtchedWafer,    "EtchedWafer",   fc.getEtchedWaferCount(),    0, kColors[2]};
-    vd.products[3] = {ProductKind::DopedWafer,     "DopedWafer",    fc.getDopedWaferCount(),     0, kColors[3]};
-    vd.products[4] = {ProductKind::CPU,            "CPU",           fc.getFinishedCPUCount(),    fc.getDefectiveCount(), kColors[4]};
+    vd.products[0] = {ProductKind::RawWafer,      "RawWafer",      bridge.getRawWaferCount(),       0, kColors[0]};
+    vd.products[1] = {ProductKind::PatternedWafer, "PatternedWafer",bridge.getPatternedWaferCount(), 0, kColors[1]};
+    vd.products[2] = {ProductKind::EtchedWafer,    "EtchedWafer",   bridge.getEtchedWaferCount(),    0, kColors[2]};
+    vd.products[3] = {ProductKind::DopedWafer,     "DopedWafer",    bridge.getDopedWaferCount(),     0, kColors[3]};
+    vd.products[4] = {ProductKind::CPU,            "CPU",           bridge.getFinishedCPUCount(),    bridge.getDefectiveCount(), kColors[4]};
 
     return vd;
 }
@@ -206,44 +202,19 @@ class ControlPanelWindow {
 public:
     void Render(ControlPanelRequest& request, const ViewportViewData& viewportData, bool isRunning) {
         ImGui::SetNextWindowPos(ImVec2(16, 16), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(358, 480), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(350, 560), ImGuiCond_FirstUseEver);
         ImGui::Begin("Control Panel");
-
-        // ── 시뮬레이션 상태 ──
-        ImGui::TextColored(ImVec4(0.6f, 0.9f, 1.0f, 1.0f), "Tick: %d", viewportData.currentTick);
-        ImGui::SameLine(120.0f);
-        ImGui::TextColored(ImVec4(0.9f, 0.6f, 0.3f, 1.0f), "Speed: x%.1f", request.speedMultiplier);
-        ImGui::Separator();
 
         // ── 라인 제어 ──
         if (ImGui::Button(isRunning ? "Pause" : "Start", ImVec2(104, 32))) {
             if (isRunning) request.requestPause = true;
             else           request.requestStart = true;
-            AddLog(isRunning ? "send: pause()" : "send: start()");
+            AddLog(isRunning ? "send: FactoryController::pause()" : "send: FactoryController::start()");
         }
         ImGui::SameLine();
         if (ImGui::Button("Reset", ImVec2(104, 32))) {
             request.requestReset = true;
-            AddLog("send: reset()");
-        }
-
-        // ── 시뮬레이션 속도 슬라이더 ──
-        ImGui::Separator();
-        ImGui::Text("Simulation Speed");
-        if (ImGui::SliderFloat("##speed", &request.speedMultiplier, 0.1f, 5.0f, "x%.1f")) {
-            // speedMultiplier is read by CpuFactoryApp each frame
-        }
-
-        // ── 시나리오 선택 ──
-        ImGui::Separator();
-        ImGui::Text("Scenario");
-        const char* scenarios[] = { "Normal Flow", "Bottleneck" };
-        int prevScenario = request.selectedScenario;
-        if (ImGui::Combo("##scenario", &request.selectedScenario, scenarios, 2)) {
-            if (request.selectedScenario != prevScenario) {
-                request.requestScenarioChange = true;
-                AddLog(std::string("send: updateCase(") + scenarios[request.selectedScenario] + ")");
-            }
+            AddLog("send: FactoryController::reset()");
         }
 
         // ── 재료 추가 ──
@@ -252,7 +223,7 @@ public:
         request.rawWaferAmount = std::max(1, request.rawWaferAmount);
         if (ImGui::Button("Add RawWafer", ImVec2(-1.0f, 30.0f))) {
             request.requestAddRawWafer = true;
-            AddLog("send: addRawWafer(" + std::to_string(request.rawWaferAmount) + ")");
+            AddLog("send: FactoryController::addRawWafer(" + std::to_string(request.rawWaferAmount) + ")");
         }
 
         // ── 장비 제어 ──
@@ -263,11 +234,11 @@ public:
         bool& pw = request.machinePowerOn[request.selectedMachineIndex];
         if (ImGui::Checkbox("Power on", &pw)) {
             request.requestPowerToggle = true;
-            AddLog(std::string("send: setPower(") + (pw ? "true)" : "false)"));
+            AddLog(std::string("send: FactoryController::setPower(") + (pw ? "true)" : "false)"));
         }
         if (ImGui::Button("Repair Machine", ImVec2(-1.0f, 30.0f))) {
             request.requestRepair = true;
-            AddLog("send: repairMachine(" + std::to_string(request.selectedMachineIndex) + ")");
+            AddLog("send: FactoryController::repairMachine()");
         }
 
         // ── 선택 장비 요약 ──
@@ -301,10 +272,10 @@ private:
 
 class MachineStatusWindow {
 public:
-    void Render(const std::array<MachineStatusViewData, 4>& machines, int& selectedIndex, ControlPanelRequest& request) {
-        ImGui::SetNextWindowPos(ImVec2(930, 510), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(334, 434), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Machine Inspector");
+    void Render(const std::array<MachineStatusViewData, 4>& machines, int& selectedIndex) {
+        ImGui::SetNextWindowPos(ImVec2(930, 486), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(322, 310), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Machine Status");
 
         for (int i = 0; i < static_cast<int>(machines.size()); ++i) {
             const MachineStatusViewData& machine = machines[i];
@@ -318,7 +289,7 @@ public:
             }
 
             float bw = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
-            if (ImGui::Selectable(machine.name.c_str(), selected, 0, ImVec2(bw, 28.0f))) {
+            if (ImGui::Button(machine.name.c_str(), ImVec2(bw, 30.0f))) {
                 selectedIndex = i;
             }
 
@@ -340,99 +311,38 @@ public:
         ImGui::Text("Queue: %d", sel.waitingCount);
         ImGui::Text("Power: %s", sel.powerOn ? "ON" : "OFF");
 
-        ImGui::Separator();
-        // Force Break 버튼 (빨간색)
-        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.7f, 0.15f, 0.15f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f,  0.2f,  1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.5f, 0.1f,  0.1f,  1.0f));
-        if (ImGui::Button("Force Break", ImVec2(-1.0f, 28.0f))) {
-            request.requestForceBreak = true;
-        }
-        ImGui::PopStyleColor(3);
-
         ImGui::End();
     }
 };
 
 class ProductStatusWindow {
 public:
-    void Render(const std::array<ProductStatusViewData, 5>& products, int breakdownCount, int lostCount) {
-        ImGui::SetNextWindowPos(ImVec2(382, 510), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(530, 434), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Statistics");
+    void Render(const std::array<ProductStatusViewData, 5>& products) {
+        ImGui::SetNextWindowPos(ImVec2(382, 486), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(530, 290), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Product Status");
 
-        // ── WIP / 완성품 ──
-        ImGui::Text("%-20s  %s", "Product", "Count");
-        ImGui::Separator();
         for (const ProductStatusViewData& product : products) {
             ImGui::PushStyleColor(ImGuiCol_Text, product.color);
-            ImGui::BulletText("%-18s", product.name.c_str());
+            ImGui::BulletText("%s", product.name.c_str());
             ImGui::PopStyleColor();
-            ImGui::SameLine(190.0f);
-            ImGui::Text("%d", product.count);
+            ImGui::SameLine(170.0f);
+            ImGui::Text("Count: %d", product.count);
             if (product.kind == ProductKind::CPU) {
-                ImGui::SameLine(265.0f);
-                ImGui::TextColored(ImVec4(0.95f, 0.35f, 0.35f, 1.0f), "Defect: %d", product.defectiveCount);
+                ImGui::SameLine(285.0f);
+                ImGui::Text("Defect: %d", product.defectiveCount);
             }
         }
 
-        // ── 추가 통계 ──
-        ImGui::Separator();
-        ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f), "Total Breakdowns : %d", breakdownCount);
-        ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Lost Products    : %d", lostCount);
-
         ImGui::End();
     }
-};
-
-// ───────────────────────────────────────────────────────────────
-// EventLogWindow: 스크롤 가능한 이벤트 로그 창
-// ───────────────────────────────────────────────────────────────
-
-class EventLogWindow {
-public:
-    void Render(const std::vector<std::string>& newLogs) {
-        // 매 틱마다 백엔드에서 팝업한 새 로그를 축적
-        for (const std::string& log : newLogs) {
-            logs_.push_back(log);
-        }
-        if (logs_.size() > 200) {
-            logs_.erase(logs_.begin(), logs_.begin() + (logs_.size() - 200));
-        }
-
-        ImGui::SetNextWindowPos(ImVec2(16, 510), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(358, 434), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Event Log");
-
-        // ── 스크롤 가능한 로그 영역 (BeginChild 필수 위젯 사용) ──
-        ImGui::BeginChild("##log_scroll", ImVec2(-1.0f, -1.0f), false, ImGuiWindowFlags_HorizontalScrollbar);
-        for (int i = static_cast<int>(logs_.size()) - 1; i >= 0; --i) {
-            const std::string& entry = logs_[i];
-            ImVec4 color = ImVec4(0.80f, 0.85f, 0.90f, 1.0f);
-            if (entry.find("broke down") != std::string::npos)
-                color = ImVec4(1.0f, 0.35f, 0.35f, 1.0f);
-            else if (entry.find("repaired") != std::string::npos)
-                color = ImVec4(0.35f, 0.95f, 0.55f, 1.0f);
-            else if (entry.find("overflow") != std::string::npos)
-                color = ImVec4(1.0f, 0.70f, 0.20f, 1.0f);
-            else if (entry.find("Scenario") != std::string::npos)
-                color = ImVec4(0.70f, 0.70f, 1.0f, 1.0f);
-            ImGui::TextColored(color, "%s", entry.c_str());
-        }
-        ImGui::EndChild();
-
-        ImGui::End();
-    }
-
-private:
-    std::vector<std::string> logs_;
 };
 
 class FactoryViewportWindow {
 public:
     void Render(const ViewportViewData& data) {
         ImGui::SetNextWindowPos(ImVec2(382, 16), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(882, 478), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(870, 455), ImGuiCond_FirstUseEver);
         ImGui::Begin("Viewport");
 
         ImVec2 origin = ImGui::GetCursorScreenPos();
@@ -506,76 +416,79 @@ public:
 class CpuFactoryApp {
 public:
     void Render() {
-        // ① 시뮬레이션 업데이트 (속도 배율 적용)
         static float accumulator = 0.0f;
-        accumulator += ImGui::GetIO().DeltaTime * request_.speedMultiplier;
-        const float tickInterval = 0.1f; // base: 10 ticks/sec
+        accumulator += ImGui::GetIO().DeltaTime;
+        const float tickInterval = 0.1f; // 10 ticks/sec
         while (accumulator >= tickInterval) {
             controller_.update();
             accumulator -= tickInterval;
         }
 
-        // ② 백엔드 상태 -> UI 뷰 데이터 변환 (popEventLogs 포함)
         ViewportViewData vd = BuildViewData(controller_, request_.selectedMachineIndex);
 
         // ③ UI 요청 처리
-        if (request_.requestStart)          { controller_.start();                                          request_.requestStart          = false; }
-        if (request_.requestPause)          { controller_.pause();                                          request_.requestPause          = false; }
-        if (request_.requestReset)          { controller_.reset();                                          request_.requestReset          = false; }
-        if (request_.requestAddRawWafer)    { controller_.addRawWafer(request_.rawWaferAmount);             request_.requestAddRawWafer    = false; }
-        if (request_.requestRepair)         { controller_.repairMachine(request_.selectedMachineIndex);     request_.requestRepair         = false; }
-        if (request_.requestForceBreak)     { controller_.forceBreakMachine(request_.selectedMachineIndex); request_.requestForceBreak     = false; }
-        if (request_.requestScenarioChange) {
-            Case c = (request_.selectedScenario == 0) ? NORMAL : BOTTLENECK;
-            controller_.updateCase(c);
-            request_.requestScenarioChange = false;
-        }
+        if (request_.requestStart)       { controller_.start();                               request_.requestStart       = false; }
+        if (request_.requestPause)       { controller_.pause();                               request_.requestPause       = false; }
+        if (request_.requestReset)       { controller_.reset();                               request_.requestReset       = false; }
+        if (request_.requestAddRawWafer) { controller_.addRawWafer(request_.rawWaferAmount);  request_.requestAddRawWafer = false; }
+        if (request_.requestRepair)      { controller_.repairMachine(request_.selectedMachineIndex); request_.requestRepair = false; }
         if (request_.requestPowerToggle) {
-            controller_.setPower(request_.selectedMachineIndex, request_.machinePowerOn[request_.selectedMachineIndex]);
             request_.requestPowerToggle = false;
         }
-
-        // ④ machinePowerOn 동기화 (UI 체크박스 상태를 백엔드에서 읽어옴)
-        for (int i = 0; i < 4; ++i) {
-            request_.machinePowerOn[i] = controller_.getMachinePower(i);
-        }
-
-        // ⑤ 각 UI 창 렌더링
         controlPanel_.Render(request_, vd, controller_.isRunning());
         viewport_.Render(vd);
-        productStatus_.Render(vd.products, vd.totalBreakdownCount, vd.totalLostProducts);
-        machineStatus_.Render(vd.machines, request_.selectedMachineIndex, request_);
-        eventLog_.Render(vd.eventLogs);
+        productStatus_.Render(vd.products);
+        machineStatus_.Render(vd.machines, request_.selectedMachineIndex);
     }
 
     bool IsDarkMode() const { return true; }
 
 private:
-    FactoryController    controller_;
+    Bridge               controller_;
     ControlPanelRequest  request_;
     ControlPanelWindow   controlPanel_;
     MachineStatusWindow  machineStatus_;
     ProductStatusWindow  productStatus_;
     FactoryViewportWindow viewport_;
-    EventLogWindow       eventLog_;
 };
-
 
 // ─────────────────────────────────────────────────────────────
 // main
 // ─────────────────────────────────────────────────────────────
 
-int main() {
-    if (!glfwInit()) return -1;
+int SDL_main(int argc, char** argv) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
+        return -1;
+    }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-    GLFWwindow* window = glfwCreateWindow(1280, 960, "CPU Factory Simulator", NULL, NULL);
-    if (!window) { glfwTerminate(); return -1; }
+    SDL_Window* window = SDL_CreateWindow(
+        "CPU Factory Simulator",
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        1280,
+        780,
+        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
+    );
+    if (!window) {
+        SDL_Quit();
+        return -1;
+    }
 
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
+    SDL_GLContext gl_context = SDL_GL_CreateContext(window);
+    if (!gl_context) {
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+
+    SDL_GL_MakeCurrent(window, gl_context);
+    SDL_GL_SetSwapInterval(1);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -590,16 +503,27 @@ int main() {
     style.GrabRounding   = 5.0f;
     style.WindowPadding  = ImVec2(14.0f, 12.0f);
 
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
     ImGui_ImplOpenGL3_Init("#version 120");
 
     CpuFactoryApp app;
+    bool done = false;
 
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
+    while (!done) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            ImGui_ImplSDL2_ProcessEvent(&event);
+            if (event.type == SDL_QUIT) {
+                done = true;
+            }
+            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE &&
+                event.window.windowID == SDL_GetWindowID(window)) {
+                done = true;
+            }
+        }
 
         ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
         app.Render();
@@ -608,14 +532,15 @@ int main() {
         glClearColor(0.10f, 0.11f, 0.13f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        glfwSwapBuffers(window);
+        SDL_GL_SwapWindow(window);
     }
 
     ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    SDL_GL_DeleteContext(gl_context);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 
     return 0;
 }

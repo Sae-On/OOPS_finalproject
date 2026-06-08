@@ -2,13 +2,27 @@
 #define MACHINE_H
 #include <string>
 #include <vector>
-#include "Models/Products/Product.h"
-#include "Models/Root.h"
-#include "Models/Machines/Durability.h"
-#include "ProgressQueue.h"
+#include "../Products/Product.h"
+#include "../Root.h"
+#include "../../ProgressQueue.h"
+#include "Durability.h"
+#include "MachineListener.h"
 
-enum MachineState { MACHINE_IDLE, MACHINE_PROCESSING, MACHINE_BROKEN};
-enum Case { NORMAL, BOTTLENECK};
+enum MachineState { MACHINE_IDLE, MACHINE_PROCESSING, MACHINE_BROKEN };
+enum Case { NORMAL, BOTTLENECK };
+
+typedef struct {
+    std::string name;
+    std::string stateName;
+    int queueSize;
+    int maxQueueSize;
+    int outputNum;
+    int processTime;
+    int remainingTime;
+    int health;
+    int progress;
+    float breakdownChance;
+} MachineData;
 
 class Machine : public Root {
 private:
@@ -17,59 +31,47 @@ private:
     Product* currentProduct;
     int output_num;
     int remaining_time;
-
+    MachineListener* listener = nullptr;
+    Machine* nextMachine;
+    
 protected:
-    int lost_product_num = 0;
-    Machine* nextMachine = nullptr;
-
+    MachineState getState() const { return state; }
+    void setState(MachineState s) { state = s; }
+    int getProcessTime() const { return processTime; }
+    void setProcessTime(int t) { processTime = t; }
+    int getOutputNum() const { return output_num; }
+    void setOutputNum(int n) { output_num = n; }
+    Product* getCurrentProduct() const { return currentProduct; }
+    void setCurrentProduct(Product* product) { currentProduct = product; }
     ProgressQueue queue;
     Durability durability;
-
-    MachineState getState() const;
-    void setState(MachineState s);
-    int getProcessTime() const;
-    void setProcessTime(int t);
-    int getHealth() const;
-    void setHealth(int h);
-    int getOutputNum() const;
-    void setOutputNum(int n);
-    int getRemainingTime() const;
-    void setRemainingTime(int t);
-    int getRepairTime() const;
-    float getBreakdownChance() const;
-    Product* getCurrentProduct() const;
-    void setCurrentProduct(Product* product);
-
+    int normalProcessTime;
+    int bottleneckProcessTime;
+    void setCaseProcessTimes(int normalTime, int bottleneckTime) {
+        normalProcessTime = normalTime;
+        bottleneckProcessTime = bottleneckTime;
+    }
+    int getProcessTimeForCase(Case c) const;
+    Product* generateProduct(Product* new_product);
+    void handleBrokenState();
+    void fetchNextProduct();
+    Machine* getNextMachine() const { return nextMachine; }
 public:
     Machine(int processT, int repairT, float breakdownC);
     virtual ~Machine();
-
-    virtual void update(int tick) = 0;
-    virtual std::string getInfo() const = 0;
-    virtual void switchCase(Case c) = 0;
+    virtual void update(int tick)=0;
+    virtual MachineData getInfo() const=0;
+    virtual void switchCase(Case c);
     virtual void breakdown();
-    virtual void repair();
-
-    // 큐 관리 (public: 외부에서 제품 투입 및 상태 조회 필요)
-    Product* popQueue();
-    void addQueue(Product* product);
-    int getQueueSize() const;
-    bool hasCurrentProduct() const;
-    int popLostProductNum();
-
-    // nextMachine 연결 (public: FactoryController에서 체인 구성)
-    void setNextMachine(Machine* next);
-    Machine* getNextMachine() const;
-
-    // 상태 조회 (UI 표시용 - public)
+    void setNextMachine(Machine* next) { nextMachine = next; }
     std::string getStateName() const;
     int getProgress() const;
-    int getMaxQueueSize() const;
-    int getDisplayProcessTime() const;
-    int getDisplayHealth() const;
-    int getDisplayRemainingTime() const;
-    int getDisplayOutputNum() const;
-    float getDisplayBreakdownChance() const;
+    ProgressQueue& getQueue();
+    void repair();
+    void decreaseRemainingTime(int amount);
+    bool isRemainTime() const;
+    int getRemainingTime() const { return remaining_time; }
+    void setListener(MachineListener* newListener);
+    void reset();
 };
 #endif
-
