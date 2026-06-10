@@ -11,10 +11,12 @@ ProductType Product::getType() const {
 }
 
 void Product::update(int tick) {
-    if ((state==DAMAGED || state==DELETED || state==COMPLETED) && listener) {
-        listener->deleteProduct(this, getState());
-        listener=nullptr;
+    if ((state==DAMAGED or state==DELETED or state==COMPLETED)) {
+        if (auto shared_listener=listener.lock()){
+            shared_listener->deleteProduct(shared_from_this(), getState());
+        }
     }
+    listener.reset();
 }
 
 ProductState Product::getState() const {
@@ -25,6 +27,6 @@ void Product::setState(ProductState s) {
     state = s;
 }
 
-void Product::setListener(ProductListener* newListener){
+void Product::setListener(std::weak_ptr<ProductListener> newListener){
     listener=newListener;
 }

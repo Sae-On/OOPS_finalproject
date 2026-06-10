@@ -1,9 +1,9 @@
 #include "ProgressQueue.h"
-Product* ProgressQueue::popQueue() {
+std::shared_ptr<Product> ProgressQueue::popQueue() {
     if (queue.empty()) {
         return nullptr;
     }
-    Product* product = queue.front();
+    std::shared_ptr<Product> product = queue.front();
     queue.erase(queue.begin());
     return product;
 }
@@ -12,7 +12,7 @@ ProgressQueue::~ProgressQueue() {
     queue.clear();
 }
 
-void ProgressQueue::addQueue(Product* product){
+void ProgressQueue::addQueue(std::shared_ptr<Product> product){
     queue.push_back(product);
 }
 

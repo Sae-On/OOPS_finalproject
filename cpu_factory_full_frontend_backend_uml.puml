@@ -1,0 +1,434 @@
+﻿@startuml
+' CPU Factory Simulator - Frontend + Backend Class Diagram
+' Only inheritance, composition, and delegation/dependency arrows are used.
+
+title CPU Factory Simulator - Frontend + Backend UML
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+package "Frontend (main.cpp / ImGui)" {
+  enum ProductKind {
+    RawWafer
+    PatternedWafer
+    EtchedWafer
+    DopedWafer
+    CPU
+  }
+
+  enum WorkState {
+    Idle
+    Processing
+    Broken
+  }
+
+  class ControlPanelRequest <<struct>> {
+    +requestStart: bool
+    +requestPause: bool
+    +requestReset: bool
+    +requestAddRawWafer: bool
+    +requestRepair: bool
+    +requestPowerToggle: bool
+    +selectedMachineIndex: int
+    +rawWaferAmount: int
+    +machinePowerOn: array<bool, 4>
+  }
+
+  class MachineStatusViewData <<struct>> {
+    +name: string
+    +inputProduct: string
+    +outputProduct: string
+    +progress: float
+    +durability: float
+    +defectRate: float
+    +processTime: float
+    +remainingTime: float
+    +waitingCount: int
+    +state: WorkState
+    +powerOn: bool
+  }
+
+  class ProductStatusViewData <<struct>> {
+    +kind: ProductKind
+    +name: string
+    +count: int
+    +defectiveCount: int
+    +color: ImVec4
+  }
+
+  class ViewportViewData <<struct>> {
+    +activeMachineIndex: int
+    +activeProductIndex: int
+    +machines: array<MachineStatusViewData, 4>
+    +products: array<ProductStatusViewData, 5>
+  }
+
+  class ViewDataMapper <<utility>> {
+    +StateFromString(s: string): WorkState
+    +BuildViewData(bridge: Bridge, selectedMachine: int): ViewportViewData
+  }
+
+  class DrawingUtils <<utility>> {
+    +ToColor(color: ImVec4): ImU32
+    +DimColor(color: ImVec4, factor: float): ImU32
+    +StateColor(state: WorkState): ImVec4
+    +StateLabel(state: WorkState): const char*
+    +DrawChip(draw: ImDrawList*, center: ImVec2, size: float)
+    +DrawWafer(draw: ImDrawList*, center: ImVec2, radius: float, dieColor: ImU32)
+  }
+
+  class ControlPanelWindow {
+    -log_: vector<string>
+    +Render(request: ControlPanelRequest&, viewportData: ViewportViewData&, isRunning: bool)
+    -AddLog(message: string)
+  }
+
+  class MachineStatusWindow {
+    +Render(machines: array<MachineStatusViewData, 4>&, selectedIndex: int&)
+  }
+
+  class ProductStatusWindow {
+    +Render(products: array<ProductStatusViewData, 5>&)
+  }
+
+  class FactoryViewportWindow {
+    +Render(data: ViewportViewData&)
+  }
+
+  class CpuFactoryApp {
+    -controller_: Bridge
+    -request_: ControlPanelRequest
+    -controlPanel_: ControlPanelWindow
+    -machineStatus_: MachineStatusWindow
+    -productStatus_: ProductStatusWindow
+    -viewport_: FactoryViewportWindow
+    +Render()
+    +IsDarkMode(): bool
+  }
+
+  class SDLMain <<entrypoint>> {
+    +SDL_main(argc: int, argv: char**): int
+  }
+}
+
+package "Backend Facade" {
+  class Bridge {
+    -controller: shared_ptr<Controller>
+    +Bridge()
+    +getMachineName(index: int): string
+    +getMachineState(index: int): string
+    +getMachineHealth(index: int): int
+    +getMachineProgress(index: int): int
+    +getMachineBreakdownChance(index: int): float
+    +getMachineProcessTime(index: int): int
+    +getMachineRemainingTime(index: int): int
+    +getMachineQueueSize(index: int): int
+    +getWaferCount(index: int): int
+    +getFinishedCPUCount(): int
+    +getDefectiveCount(): int
+    +updateCase(c: Case)
+    +addRawWafer(count: int)
+    +repairMachine(index: int)
+    +start()
+    +pause()
+    +isRunning(): bool
+    +reset()
+    +update()
+    +getLogEntries(): vector<LogEntry>&
+  }
+
+  class Initializer {
+    +Initialize(controller: shared_ptr<Controller>&)
+  }
+}
+
+package "Backend Core" {
+  abstract class Root {
+    +~Root()
+    +update(tick: int) {abstract}
+  }
+
+  enum MachineState {
+    MACHINE_IDLE
+    MACHINE_PROCESSING
+    MACHINE_BROKEN
+  }
+
+  enum Case {
+    NORMAL
+    BOTTLENECK
+  }
+
+  enum ProductType {
+    RAW
+    PATTERNED
+    ETCHED
+    DOPED
+    CPU_TYPE
+  }
+
+  enum ProductState {
+    IDLE
+    DELETED
+    DAMAGED
+    GENERATED
+    COMPLETED
+  }
+
+  abstract class MachineListener {
+    +onProductGenerated(newProduct: shared_ptr<Product>) {abstract}
+  }
+
+  abstract class ProductListener {
+    +deleteProduct(product: shared_ptr<Product>, state: ProductState) {abstract}
+  }
+
+
+  class MachineData <<struct>> {
+    +name: string
+    +stateName: string
+    +queueSize: int
+    +maxQueueSize: int
+    +outputNum: int
+    +processTime: int
+    +remainingTime: int
+    +health: int
+    +maxHealth: int
+    +progress: int
+    +breakdownChance: float
+  }
+
+  class LogEntry <<struct>> {
+    +tick: int
+    +level: LogLevel
+    +source: string
+    +message: string
+    +toString(): string
+  }
+
+  enum LogLevel {
+    LOG_INFO
+    LOG_WARNING
+    LOG_ERROR
+  }
+
+  class Logger {
+    -logs: vector<LogEntry>
+    +addLog(tick: int, level: LogLevel, source: string, message: string)
+    +getLogs(): vector<LogEntry>&
+    +clear()
+  }
+
+  class Controller {
+    -products: vector<shared_ptr<Product>>
+    -machines: vector<shared_ptr<Machine>>
+    -generator: unique_ptr<Generator>
+    -newly_generated_products: vector<shared_ptr<Product>>
+    -tick: int
+    -lost_products_num: int
+    -completed_products_num: int
+    -running: bool
+    -curr_case: Case
+    -logger: Logger
+    +addMachine(new_m: shared_ptr<Machine>)
+    +setGenerator(new_generator: unique_ptr<Generator>)
+    +onProductGenerated(newProduct: shared_ptr<Product>)
+    +deleteProduct(product: shared_ptr<Product>, state: ProductState)
+    +update()
+    +getMachineInfo(i: int): MachineData
+    +start()
+    +pause()
+    +isRunning(): bool
+    +reset()
+    +updateCase(c: Case)
+    +addRawWafer(count: int)
+    +repairMachine(index: int)
+    +getCompletedCount(): int
+    +getLostCount(): int
+    +log(level: LogLevel, source: string, message: string)
+    +getLogger(): Logger&
+  }
+}
+
+package "Backend Products" {
+  abstract class Product {
+    -listener: weak_ptr<ProductListener>
+    #type: ProductType
+    #state: ProductState
+    +Product(t: ProductType = RAW)
+    +Product(other: Product&)
+    +getType(): ProductType
+    +getState(): ProductState
+    +setState(s: ProductState)
+    +getTypeName(): string {abstract}
+    +update(tick: int)
+    +setListener(newListener: weak_ptr<ProductListener>)
+  }
+
+  class RawWafer {
+    +RawWafer()
+    +getTypeName(): string
+  }
+
+  class PatternedWafer {
+    +PatternedWafer()
+    +PatternedWafer(other: Product&)
+    +getTypeName(): string
+  }
+
+  class EtchedWafer {
+    +EtchedWafer()
+    +EtchedWafer(other: Product&)
+    +getTypeName(): string
+  }
+
+  class DopedWafer {
+    +DopedWafer()
+    +DopedWafer(other: Product&)
+    +getTypeName(): string
+  }
+
+  class CPU {
+    +CPU()
+    +CPU(other: Product&)
+    +getTypeName(): string
+  }
+}
+
+package "Backend Machines" {
+  class ProgressQueue {
+    -queue: vector<shared_ptr<Product>>
+    -maxQueueSize: int
+    +popQueue(): shared_ptr<Product>
+    +addQueue(product: shared_ptr<Product>)
+    +getQueueSize(): int
+    +getMaxQueueSize(): int
+    +reset()
+  }
+
+  class Durability {
+    -health: int
+    -MAX_HEALTH: int
+    -REPAIR_ADD_HEALTH: int
+    -breakdown_chance: float
+    -repair_time: int
+    +decreaseHealth(amount: int)
+    +checkBreakdown(): bool
+    +repair()
+    +breakdown()
+    +getHealth(): int
+    +getMaxHealth(): int
+    +getRepairTime(): int
+    +reset()
+    +getBreakdownChance(): float
+  }
+
+  abstract class Machine {
+    -state: MachineState
+    -processTime: int
+    -currentProduct: shared_ptr<Product>
+    -output_num: int
+    -remaining_time: int
+    -listener: weak_ptr<MachineListener>
+    -nextMachine: shared_ptr<Machine>
+    #queue: ProgressQueue
+    #durability: Durability
+    #normalProcessTime: int
+    #bottleneckProcessTime: int
+    +Machine(processT: int, repairT: int, breakdownC: float)
+    +update(tick: int) {abstract}
+    +getInfo(): MachineData {abstract}
+    +switchCase(c: Case)
+    +breakdown()
+    +setNextMachine(next: shared_ptr<Machine>)
+    +getStateName(): string
+    +getProgress(): int
+    +getQueue(): ProgressQueue&
+    +repair()
+    +reset()
+    #generateProduct(new_product: shared_ptr<Product>): shared_ptr<Product>
+    #handleBrokenState()
+    #fetchNextProduct()
+    #handleProcessing<T>()
+  }
+
+  class Photolithography {
+    +Photolithography()
+    +update(tick: int)
+    +getInfo(): MachineData
+  }
+
+  class Etcher {
+    +Etcher()
+    +update(tick: int)
+    +getInfo(): MachineData
+  }
+
+  class IonImplantator {
+    +IonImplantator()
+    +update(tick: int)
+    +getInfo(): MachineData
+  }
+
+  class Packager {
+    +Packager()
+    +update(tick: int)
+    +getInfo(): MachineData
+  }
+
+  class Generator {
+    -generate_time: int
+    -remain_time: int
+    -onElementGenerated: function<void(shared_ptr<Root>)>
+    +Generator()
+    +update(tick: int)
+    +setGenerationCallback(cb: function<void(shared_ptr<Root>)>)
+    +reset()
+    +generate()
+  }
+}
+
+' Inheritance
+Root <|-- Product
+Root <|-- Machine
+Root <|-- Generator
+Product <|-- RawWafer
+Product <|-- PatternedWafer
+Product <|-- EtchedWafer
+Product <|-- DopedWafer
+Product <|-- CPU
+Machine <|-- Photolithography
+Machine <|-- Etcher
+Machine <|-- IonImplantator
+Machine <|-- Packager
+MachineListener <|-- Controller
+ProductListener <|-- Controller
+
+' Composition
+SDLMain *-- CpuFactoryApp : app
+CpuFactoryApp *-- Bridge : controller_
+CpuFactoryApp *-- ControlPanelRequest : request_
+CpuFactoryApp *-- ControlPanelWindow : controlPanel_
+CpuFactoryApp *-- MachineStatusWindow : machineStatus_
+CpuFactoryApp *-- ProductStatusWindow : productStatus_
+CpuFactoryApp *-- FactoryViewportWindow : viewport_
+ViewportViewData *-- "4" MachineStatusViewData : machines
+ViewportViewData *-- "5" ProductStatusViewData : products
+Bridge *-- Controller : controller
+Controller *-- Generator : generator
+Controller *-- Logger : logger
+Machine *-- ProgressQueue : queue
+Machine *-- Durability : durability
+Logger *-- "0..*" LogEntry : logs
+
+' Aggregation
+Controller o-- "0..*" Product : products
+Controller o-- "0..*" Machine : machines
+Machine o-- Product : currentProduct
+Machine o-- Machine : nextMachine
+Machine o-- MachineListener : listener
+ProgressQueue o-- "0..*" Product : queued products
+Product o-- ProductListener : listener
+
+
+@enduml

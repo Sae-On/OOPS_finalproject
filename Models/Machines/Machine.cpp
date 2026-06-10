@@ -3,9 +3,6 @@
 Machine::Machine(int processT, int repairT, float breakdownC)
     : state(MACHINE_IDLE), processTime(processT), output_num(0), remaining_time(0), currentProduct(nullptr), durability(breakdownC, repairT), normalProcessTime(processT), bottleneckProcessTime(processT) {}
 
-Machine::~Machine() {
-    delete currentProduct;
-}
 
 void Machine::switchCase(Case c) {
     setProcessTime(getProcessTimeForCase(c));
@@ -43,13 +40,15 @@ ProgressQueue &Machine::getQueue() {
     return queue;
 }
 
-void Machine::setListener(MachineListener* newListener){
+void Machine::setListener(std::weak_ptr<MachineListener> newListener){
     listener=newListener;
 }
 
-Product* Machine::generateProduct(Product* new_product){
-    if (new_product && listener){
-        listener->onProductGenerated(new_product);
+std::shared_ptr<Product> Machine::generateProduct(std::shared_ptr<Product> new_product){
+    if (new_product){
+        if (auto listener_shared=listener.lock()){
+            listener_shared->onProductGenerated(new_product);
+        }
     }
     return new_product;
 }

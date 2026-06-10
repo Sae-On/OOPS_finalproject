@@ -1,7 +1,9 @@
 #include "Durability.h"
 #include <random>
 
-Durability::Durability(float bc, int rt):breakdown_chance(bc), repair_time(rt){}
+Durability::Durability(float bc, int rt):breakdown_chance(bc), repair_time(rt){
+    health=MAX_HEALTH;
+}
 
 void Durability::decreaseHealth(int amount){
     if (health > amount) {
@@ -12,15 +14,19 @@ void Durability::decreaseHealth(int amount){
 }
 
 bool Durability::checkBreakdown(){
-    return (std::rand() / static_cast<float>(RAND_MAX)) < breakdown_chance || health <= 0;
+    return (std::rand() / static_cast<float>(RAND_MAX)) < breakdown_chance or health <= 0;
 }
 
 int Durability::getHealth() const{
     return health;
 }
 
+int Durability::getMaxHealth() const{
+    return MAX_HEALTH;
+}
+
 void Durability::repair(){
-    health = health > 70 ? 100 : health + 50;
+    health = health > MAX_HEALTH-REPAIR_ADD_HEALTH ? MAX_HEALTH : health+REPAIR_ADD_HEALTH;
 }
 
 int Durability::getRepairTime() const{
@@ -28,7 +34,7 @@ int Durability::getRepairTime() const{
 }
 
 void Durability::reset() {
-    health = 100;
+    health = 200;
 }
 
 void Durability::breakdown() {

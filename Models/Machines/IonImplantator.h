@@ -3,10 +3,8 @@
 #include "Machine.h"
 
 class IonImplantator : public Machine {
-private:
-    Machine* nextMachine;
 public:
-    IonImplantator() : Machine(5,6,0.01f), nextMachine(nullptr) {
+    IonImplantator() : Machine(5,6,0.01f) {
         setCaseProcessTimes(5, 5);
     }
     virtual void update(int tick) override;

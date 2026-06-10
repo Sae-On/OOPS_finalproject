@@ -2,7 +2,7 @@
 
 Generator::Generator():generate_time(4), remain_time(4), onElementGenerated(nullptr) {}
 
-void Generator::setGenerationCallback(std::function<void(Root*)> cb){
+void Generator::setGenerationCallback(std::function<void(std::shared_ptr<Root>)> cb){
     onElementGenerated=std::move(cb);
 }
 
@@ -15,11 +15,9 @@ void Generator::update(int tick){
 }
 
 void Generator::generate() {
-    RawWafer* new_wafer = new RawWafer();
+    std::shared_ptr<RawWafer> new_wafer = std::make_shared<RawWafer>();
     if (onElementGenerated) {
         onElementGenerated(new_wafer);
-    } else {
-        delete new_wafer;
     }
 }
 

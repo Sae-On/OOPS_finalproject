@@ -3,6 +3,7 @@
 #include "Product.h"
 
 class RawWafer : public Product {
+    
 public:
     RawWafer();
     std::string getTypeName() const override;

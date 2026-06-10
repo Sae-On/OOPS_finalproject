@@ -15,18 +15,7 @@ void Packager::update(int tick) {
     }
 
     if (getCurrentProduct() != nullptr) {
-        decreaseRemainingTime(1);
-        durability.decreaseHealth(1);
-        if (!isRemainTime()) {
-            Product* done = getCurrentProduct();
-            setCurrentProduct(nullptr);
-            done->setState(DELETED);
-            generateProduct(new CPU(*done));
-            setOutputNum(getOutputNum() + 1);
-            if (durability.checkBreakdown()) {
-                breakdown();
-            }
-        }
+        handleProcessing<CPU>();
     }
 }
 
@@ -40,6 +29,7 @@ MachineData Packager::getInfo() const {
     data.processTime=getProcessTime();
     data.remainingTime=getRemainingTime();
     data.health=durability.getHealth();
+    data.maxHealth=durability.getMaxHealth();
     data.progress=getProgress();
     data.breakdownChance=durability.getBreakdownChance();
     return data;

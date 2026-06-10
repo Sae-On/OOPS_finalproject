@@ -116,10 +116,10 @@ static ViewportViewData BuildViewData(const Bridge& bridge, int selectedMachine)
     };
     static const int kCounts[5] = {0}; // placeholder per-frame computed below
 
-    vd.products[0] = {ProductKind::RawWafer,      "RawWafer",      bridge.getRawWaferCount(),       0, kColors[0]};
-    vd.products[1] = {ProductKind::PatternedWafer, "PatternedWafer",bridge.getPatternedWaferCount(), 0, kColors[1]};
-    vd.products[2] = {ProductKind::EtchedWafer,    "EtchedWafer",   bridge.getEtchedWaferCount(),    0, kColors[2]};
-    vd.products[3] = {ProductKind::DopedWafer,     "DopedWafer",    bridge.getDopedWaferCount(),     0, kColors[3]};
+    vd.products[0] = {ProductKind::RawWafer,      "RawWafer",      bridge.getWaferCount(0),       0, kColors[0]};
+    vd.products[1] = {ProductKind::PatternedWafer, "PatternedWafer",bridge.getWaferCount(1), 0, kColors[1]};
+    vd.products[2] = {ProductKind::EtchedWafer,    "EtchedWafer",   bridge.getWaferCount(2),    0, kColors[2]};
+    vd.products[3] = {ProductKind::DopedWafer,     "DopedWafer",    bridge.getWaferCount(3),     0, kColors[3]};
     vd.products[4] = {ProductKind::CPU,            "CPU",           bridge.getFinishedCPUCount(),    bridge.getDefectiveCount(), kColors[4]};
 
     return vd;

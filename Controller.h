@@ -7,13 +7,12 @@
 #include "Logger.h"
 #include <vector>
 
-class Controller : public MachineListener, public ProductListener {
+class Controller : public MachineListener, public ProductListener, public std::enable_shared_from_this<Controller> {
 private:
-    std::vector<Product*> products;
-    std::vector<Machine*> machines;
-    Generator* generator;
-    std::vector<Product*> newly_generated_products;
-    std::vector<Product*> products_to_delete;
+    std::vector<std::shared_ptr<Product>> products;
+    std::vector<std::shared_ptr<Machine>> machines;
+    std::unique_ptr<Generator> generator;
+    std::vector<std::shared_ptr<Product>> newly_generated_products;
     int tick=0;
     int lost_products_num=0;
     int completed_products_num=0;
@@ -22,10 +21,10 @@ private:
     Logger logger;
 public:
     ~Controller();
-    void addMachine(Machine* new_m);
-    void setGenerator(Generator* new_generator);
-    void onProductGenerated(Product* newProduct);
-    void deleteProduct(Product* product, ProductState state);
+    void addMachine(std::shared_ptr<Machine> new_m);
+    void setGenerator(std::unique_ptr<Generator> new_generator);
+    void onProductGenerated(std::shared_ptr<Product> newProduct);
+    void deleteProduct(std::shared_ptr<Product> product, ProductState state);
     void update();
     MachineData getMachineInfo(int i) const;
     void start();

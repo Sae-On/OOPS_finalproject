@@ -3,7 +3,7 @@
 #include "Controller.h"
 class Bridge {
 private:
-    Controller* controller;
+    std::shared_ptr<Controller> controller;
 public:
     Bridge();
     ~Bridge();
@@ -15,10 +15,7 @@ public:
     int getMachineProcessTime(int index) const;
     int getMachineRemainingTime(int index) const;
     int getMachineQueueSize(int index) const;
-    int getRawWaferCount() const;
-    int getPatternedWaferCount() const;
-    int getEtchedWaferCount() const;
-    int getDopedWaferCount() const;
+    int getWaferCount(int index) const;
     int getFinishedCPUCount() const;
     int getDefectiveCount() const;
     void updateCase(Case c);

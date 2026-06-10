@@ -1,10 +1,12 @@
 #include "PatternedWafer.h"
+#include "RawWafer.h"
+#include <iostream>
 
 PatternedWafer::PatternedWafer() : Product(PATTERNED) {}
 
 PatternedWafer::PatternedWafer(const Product& other) : Product(other) {
     if (other.getType() != RAW) {
-        state=DAMAGED;
+        state = DAMAGED;
     }
     type = PATTERNED;
 }

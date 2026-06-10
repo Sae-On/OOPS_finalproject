@@ -2,22 +2,6 @@
 #include <algorithm>
 
 Controller::~Controller(){
-    for (Product* p : products){
-        delete p;
-    }
-    for (Machine* m : machines){
-        delete m;
-    }
-    if (generator) {
-        delete generator;
-    }
-    machines.clear();
-    products.clear();
-    for (Product* p : newly_generated_products){
-        delete p;
-    }
-    newly_generated_products.clear();
-    products_to_delete.clear();
 }
 void Controller::start() {
     running = true;
@@ -25,40 +9,34 @@ void Controller::start() {
 void Controller::pause() {
     running = false;
 }
-void Controller::addMachine(Machine* new_m){
+void Controller::addMachine(std::shared_ptr<Machine> new_m){
     if (!new_m) return;
-    new_m->setListener(this);
+    new_m->setListener(shared_from_this());
     machines.push_back(new_m);
 }
 
-void Controller::setGenerator(Generator* new_generator){
+void Controller::setGenerator(std::unique_ptr<Generator> new_generator){
     if (!new_generator) return;
-    generator = new_generator;
-    generator->setGenerationCallback([this](Root* root){
-        Product* product = dynamic_cast<Product*>(root);
+    generator = std::move(new_generator);
+    generator->setGenerationCallback([this](std::shared_ptr<Root> root){
+        auto product = std::dynamic_pointer_cast<Product>(root);
         if (product) {
             this->onProductGenerated(product);
-        } else {
-            delete root;
         }
     });
 }
 
-void Controller::onProductGenerated(Product* newProduct){
+void Controller::onProductGenerated(std::shared_ptr<Product> newProduct){
     if (!newProduct) return;
-    newProduct->setListener(this);
+    newProduct->setListener(shared_from_this());
     if (newProduct->getType() == RAW && !machines.empty()) {
         machines.front()->getQueue().addQueue(newProduct);
     }
     newly_generated_products.push_back(newProduct);
 }
 
-void Controller::deleteProduct(Product* product, ProductState state){
+void Controller::deleteProduct(std::shared_ptr<Product> product, ProductState state){
     if (!product) return;
-    auto check_it = std::find(products_to_delete.begin(), products_to_delete.end(), product);
-    if (check_it != products_to_delete.end()) {
-        return;
-    }
     switch (state)
     {
     case DAMAGED:
@@ -73,7 +51,6 @@ void Controller::deleteProduct(Product* product, ProductState state){
     default:
         break;
     }
-    products_to_delete.push_back(product);
 }
 
 void Controller::update(){
@@ -81,27 +58,27 @@ void Controller::update(){
     if (generator) {
         generator->update(tick);
     }
-    for (Product* p : newly_generated_products){
+    for (const auto& p : newly_generated_products){
         if (p) {
             products.push_back(p);
         }
     }
     newly_generated_products.clear();
-    for (Product* product : products){
+    for (const auto& product : products){
         if (product) product->update(tick);
     }
-    for (Machine* machine : machines){
+    for (const auto& machine : machines){
         if (machine) machine->update(tick);
     }
-    for (Product* dead_p : products_to_delete) {
-        if (!dead_p) continue;
-        auto it = std::find(products.begin(), products.end(), dead_p);
-        if (it != products.end()) {
-            products.erase(it);
-        }
-        delete dead_p; 
-    }
-    products_to_delete.clear();
+    products.erase(
+        std::remove_if(products.begin(), products.end(), [](const std::shared_ptr<Product>& p) {
+        if (!p) return true;
+        ProductState s = p->getState();
+        return (s == DAMAGED || s == DELETED || s == COMPLETED);
+    }),
+    products.end()
+    );
+    
     tick++;
 }
 
@@ -118,21 +95,14 @@ void Controller::reset(){
     tick=0;
     lost_products_num=0;
     completed_products_num=0;
-    for (Product* p : products){
-        delete p;
-    }
     products.clear();
-    for (Machine* m : machines){
+    for (const auto& m : machines){
         m->reset();
     }
     if (generator) {
         generator->reset();
     }
-    for (Product* p : newly_generated_products){
-        delete p;
-    }
     newly_generated_products.clear();
-    products_to_delete.clear();
 }
 
 void Controller::updateCase(Case c){
@@ -140,7 +110,7 @@ void Controller::updateCase(Case c){
     running=false;
     reset();
     curr_case=c;
-    for (Machine* m : machines){
+    for (const auto& m : machines){
         if (m) m->switchCase(c);
     }
     log(LOG_WARNING, "System", "Factory Scenario updated to " + std::string(c == BOTTLENECK ? "BOTTLENECK" : "NORMAL"));

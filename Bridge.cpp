@@ -2,17 +2,12 @@
 #include "Initializer.h"
 
 Bridge::Bridge() {
-    controller = new Controller();
+    controller = std::make_unique<Controller>();
     Initializer initializer;
     initializer.Initialize(controller);
 }
 
-Bridge::~Bridge() {
-    if (controller) {
-        delete controller;
-        controller = nullptr;
-    }
-}
+Bridge::~Bridge() {}
 
 std::string Bridge::getMachineName(int index) const {
     return controller->getMachineInfo(index).name;
@@ -21,7 +16,8 @@ std::string Bridge::getMachineState(int index) const {
     return controller->getMachineInfo(index).stateName;
 }
 int Bridge::getMachineHealth(int index) const {
-    return controller->getMachineInfo(index).health;
+    auto info=controller->getMachineInfo(index);
+    return (info.maxHealth!=0) ? (info.health*100)/info.maxHealth : 0;
 }
 int Bridge::getMachineProgress(int index) const {
     return controller->getMachineInfo(index).progress;
@@ -38,17 +34,8 @@ int Bridge::getMachineRemainingTime(int index) const {
 int Bridge::getMachineQueueSize(int index) const {
     return controller->getMachineInfo(index).queueSize;
 }
-int Bridge::getRawWaferCount() const {
-    return controller->getMachineInfo(0).queueSize + (controller->getMachineInfo(0).stateName == "PROCESSING" ? 1 : 0);
-}
-int Bridge::getPatternedWaferCount() const {
-    return controller->getMachineInfo(1).queueSize + (controller->getMachineInfo(1).stateName == "PROCESSING" ? 1 : 0);
-}
-int Bridge::getEtchedWaferCount() const {
-    return controller->getMachineInfo(2).queueSize + (controller->getMachineInfo(2).stateName == "PROCESSING" ? 1 : 0);
-}
-int Bridge::getDopedWaferCount() const {
-    return controller->getMachineInfo(3).queueSize + (controller->getMachineInfo(3).stateName == "PROCESSING" ? 1 : 0);
+int Bridge::getWaferCount(int index) const {
+    return controller->getMachineInfo(index).queueSize + (controller->getMachineInfo(index).stateName == "PROCESSING" ? 1 : 0);
 }
 int Bridge::getFinishedCPUCount() const {
     return controller->getCompletedCount();

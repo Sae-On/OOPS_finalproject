@@ -5,11 +5,11 @@
 #include "Models/Machines/Packager.h"
 #include "Models/Machines/Photolithography.h"
 
-void Initializer::Initialize(Controller* controller) {
-    Photolithography* photolithography = new Photolithography();
-    Etcher* etcher = new Etcher();
-    IonImplantator* ionImplantator = new IonImplantator();
-    Packager* packager = new Packager();
+void Initializer::Initialize(std::shared_ptr<Controller>& controller) {
+    auto photolithography = std::make_shared<Photolithography>();
+    auto etcher = std::make_shared<Etcher>();
+    auto ionImplantator = std::make_shared<IonImplantator>();
+    auto packager = std::make_shared<Packager>();
 
     photolithography->setNextMachine(etcher);
     etcher->setNextMachine(ionImplantator);
@@ -20,6 +20,6 @@ void Initializer::Initialize(Controller* controller) {
     controller->addMachine(ionImplantator);
     controller->addMachine(packager);
 
-    Generator* generator = new Generator();
-    controller->setGenerator(generator);
+    auto generator = std::make_unique<Generator>();
+    controller->setGenerator(std::move(generator));
 }

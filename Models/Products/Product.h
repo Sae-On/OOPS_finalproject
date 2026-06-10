@@ -3,13 +3,14 @@
 #include <string>
 #include "../Root.h"
 #include "ProductListener.h"
+#include <memory>
 
 enum ProductType { RAW, PATTERNED, ETCHED, DOPED, CPU_TYPE };
 enum ProductState : int { IDLE, DELETED, DAMAGED, GENERATED, COMPLETED };
 
-class Product : public Root {
+class Product : public Root, public std::enable_shared_from_this<Product> {
 private:
-    ProductListener* listener = nullptr;
+    std::weak_ptr<ProductListener> listener;
 protected:
     ProductType type;
     ProductState state;
@@ -22,7 +23,7 @@ public:
     void setState(ProductState s);
     virtual std::string getTypeName() const = 0;
     virtual void update(int tick) override;
-    void setListener(ProductListener* newListener);
+    void setListener(std::weak_ptr<ProductListener> newListener);
 };
 
 #endif

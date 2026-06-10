@@ -1,5 +1,6 @@
 #include "Etcher.h"
 #include "../Products/EtchedWafer.h"
+#include <memory>
 
 void Etcher::update(int tick) {
     if (getState() == MACHINE_BROKEN) {
@@ -13,31 +14,9 @@ void Etcher::update(int tick) {
             return;
         }
     }
-
     if (getCurrentProduct() != nullptr) {
-        decreaseRemainingTime(1);
-        durability.decreaseHealth(1);
-        if (!isRemainTime()) {
-            if (getNextMachine() && getNextMachine()->getQueue().getQueueSize() < getNextMachine()->getQueue().getMaxQueueSize()) {
-                Product* done = getCurrentProduct();
-                Product* processedProduct = generateProduct(new EtchedWafer(*done));
-                setCurrentProduct(nullptr);
-                done->setState(DELETED);
-
-                getNextMachine()->getQueue().addQueue(processedProduct);
-                
-                setOutputNum(getOutputNum() + 1);
-                if (durability.checkBreakdown()) {
-                    breakdown();
-                }
-            } else {
-                getCurrentProduct()->setState(DAMAGED);
-                setCurrentProduct(nullptr);
-                setState(MACHINE_IDLE);
-            }
-        }
-    }
-    
+        handleProcessing<EtchedWafer>();
+    }  
 }
 
 MachineData Etcher::getInfo() const {
@@ -50,6 +29,7 @@ MachineData Etcher::getInfo() const {
     data.processTime=getProcessTime();
     data.remainingTime=getRemainingTime();
     data.health=durability.getHealth();
+    data.maxHealth=durability.getMaxHealth();
     data.progress=getProgress();
     data.breakdownChance=durability.getBreakdownChance();
     return data;
