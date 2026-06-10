@@ -14,7 +14,7 @@ void Durability::decreaseHealth(int amount){
 }
 
 bool Durability::checkBreakdown(){
-    return (std::rand() / static_cast<float>(RAND_MAX)) < breakdown_chance or health <= 0;
+    return (std::rand() / static_cast<float>(RAND_MAX)) < breakdown_chance || health <= 0;
 }
 
 int Durability::getHealth() const{
