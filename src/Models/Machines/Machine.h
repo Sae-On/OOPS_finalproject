@@ -10,7 +10,7 @@
 #include <memory>
 
 enum MachineState { MACHINE_IDLE, MACHINE_PROCESSING, MACHINE_BROKEN };
-enum Case { NORMAL, BOTTLENECK, BREAKDOWN };
+enum Case { NORMAL, BOTTLENECK };
 
 struct MachineData{
     std::string name;
@@ -36,7 +36,7 @@ private:
     int remaining_time;
     std::weak_ptr<MachineListener> listener;
     std::shared_ptr<Machine> nextMachine;
-    
+    bool power=true;
 protected:
     MachineState getState() const { return state; }
     void setState(MachineState s) { state = s; }
@@ -77,8 +77,6 @@ public:
     bool isRemainTime() const;
     int getRemainingTime() const { return remaining_time; }
     void setListener(std::weak_ptr<MachineListener> newListener);
-    void setPowered(bool on) { powered = on; }
-    bool isPowered() const { return powered; }
     void reset();
     void setPower(bool power);
     bool getPower() const { return power; }

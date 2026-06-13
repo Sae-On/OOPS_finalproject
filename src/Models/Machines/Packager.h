@@ -6,7 +6,7 @@ class Packager : public Machine {
 protected:
     virtual std::shared_ptr<Product> makeWaferPtr(std::shared_ptr<Product>) const override;
 public:
-    Packager() : Machine(2,4,0.015f) {
+    Packager() : Machine(2,4,0.01f) {
         setCaseProcessTimes(2, 2);
     }
     virtual MachineData getInfo() const override;

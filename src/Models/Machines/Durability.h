@@ -19,7 +19,6 @@ public:
     int getRepairTime() const;
     void reset();
     float getBreakdownChance() const { return breakdown_chance; }
-    void setBreakdownChance(float bc) { breakdown_chance = bc; }
 };
 
 #endif

@@ -1,18 +1,19 @@
 #include "Machine.h"
 
 Machine::Machine(int processT, int repairT, float breakdownC)
-    : state(MACHINE_IDLE), processTime(processT), output_num(0), remaining_time(0), currentProduct(nullptr), durability(breakdownC, repairT), normalProcessTime(processT), bottleneckProcessTime(processT), powered(true), baseBreakdownChance(breakdownC) {}
+    : state(MACHINE_IDLE), processTime(processT), output_num(0), remaining_time(0), currentProduct(nullptr), durability(breakdownC, repairT), normalProcessTime(processT), bottleneckProcessTime(processT) {}
 
 
 void Machine::switchCase(Case c) {
     setProcessTime(getProcessTimeForCase(c));
-    // Random Breakdowns scenario raises the breakdown probability for every machine.
-    durability.setBreakdownChance(c == BREAKDOWN ? 0.06f : baseBreakdownChance);
 }
 
 void Machine::breakdown() {
     setState(MACHINE_BROKEN);
     remaining_time=durability.getRepairTime();
+    if (auto listener_shared=listener.lock()){
+        listener_shared->onMachineBreakdown();
+    }
 }
 
 std::string Machine::getStateName() const {
@@ -90,9 +91,7 @@ void Machine::reset() {
     setCurrentProduct(nullptr);
     output_num = 0;
     remaining_time = 0;
-    powered = true;
     durability.reset();
-    durability.setBreakdownChance(baseBreakdownChance);
     queue.reset();
 }
 int Machine::getProcessTimeForCase(Case c) const {
