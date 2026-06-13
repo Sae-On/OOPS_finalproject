@@ -18,9 +18,15 @@ public:
     int getWaferCount(int index) const;
     int getFinishedCPUCount() const;
     int getDefectiveCount() const;
+    int getBreakdownCount() const;
+    int getWipCount() const;
+    int getTick() const;
     void updateCase(Case c);
     void addRawWafer(int count);
     void repairMachine(int index);
+    void forceBreakMachine(int index);
+    void setMachinePower(int index, bool on);
+    void clearLog();
     void start();
     void pause();
     bool isRunning() const { return controller->isRunning(); }

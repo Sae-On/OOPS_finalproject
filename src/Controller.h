@@ -16,6 +16,7 @@ private:
     int tick=0;
     int lost_products_num=0;
     int completed_products_num=0;
+    int breakdown_num=0;
     bool running=false;
     Case curr_case=NORMAL;
     Logger logger;
@@ -23,8 +24,9 @@ public:
     ~Controller();
     void addMachine(std::shared_ptr<Machine> new_m);
     void setGenerator(std::unique_ptr<Generator> new_generator);
-    void onProductGenerated(std::shared_ptr<Product> newProduct);
-    void deleteProduct(std::shared_ptr<Product> product, ProductState state);
+    void onProductGenerated(std::shared_ptr<Product> newProduct) override;
+    void onMachineBroken(const std::string& machineName) override;
+    void deleteProduct(std::shared_ptr<Product> product, ProductState state) override;
     void update();
     MachineData getMachineInfo(int i) const;
     void start();
@@ -34,8 +36,14 @@ public:
     void updateCase(Case c);
     void addRawWafer(int count);
     void repairMachine(int index);
+    void forceBreakMachine(int index);
+    void setMachinePower(int index, bool on);
     int getCompletedCount() const { return completed_products_num; }
     int getLostCount() const { return lost_products_num; }
+    int getBreakdownCount() const { return breakdown_num; }
+    int getWipCount() const { return static_cast<int>(products.size()); }
+    int getTick() const { return tick; }
+    void clearLog() { logger.clear(); }
     void log(LogLevel level, const std::string& source, const std::string& message) {
         logger.addLog(tick, level, source, message);
     }

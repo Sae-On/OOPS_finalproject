@@ -35,6 +35,11 @@ void Controller::onProductGenerated(std::shared_ptr<Product> newProduct){
     newly_generated_products.push_back(newProduct);
 }
 
+void Controller::onMachineBroken(const std::string& machineName){
+    breakdown_num++;
+    log(LOG_WARNING, machineName, "BREAKDOWN: machine failed. Technician dispatched for repair.");
+}
+
 void Controller::deleteProduct(std::shared_ptr<Product> product, ProductState state){
     if (!product) return;
     switch (state)
@@ -68,13 +73,22 @@ void Controller::update(){
         if (product) product->update(tick);
     }
     for (const auto& machine : machines){
-        if (machine) machine->update(tick);
+        if (machine && machine->isPowered()) machine->update(tick);
     }
     products.erase(
-        std::remove_if(products.begin(), products.end(), [](const std::shared_ptr<Product>& p) {
+        std::remove_if(products.begin(), products.end(), [this](const std::shared_ptr<Product>& p) {
         if (!p) return true;
         ProductState s = p->getState();
-        return (s == DAMAGED || s == DELETED || s == COMPLETED);
+        if (s == DAMAGED || s == DELETED || s == COMPLETED) {
+            // Report the product before it leaves the system. Products that reach a
+            // terminal state during the machine-update phase would otherwise be erased
+            // in the same tick, before their update() runs, so the loss/completion would
+            // never be counted. Product::update() resets its listener after reporting,
+            // so calling it again here cannot double-count already-counted products.
+            p->update(tick);
+            return true;
+        }
+        return false;
     }),
     products.end()
     );
@@ -95,6 +109,7 @@ void Controller::reset(){
     tick=0;
     lost_products_num=0;
     completed_products_num=0;
+    breakdown_num=0;
     products.clear();
     for (const auto& m : machines){
         m->reset();
@@ -113,7 +128,8 @@ void Controller::updateCase(Case c){
     for (const auto& m : machines){
         if (m) m->switchCase(c);
     }
-    log(LOG_WARNING, "System", "Factory Scenario updated to " + std::string(c == BOTTLENECK ? "BOTTLENECK" : "NORMAL"));
+    const char* caseName = (c == BOTTLENECK) ? "BOTTLENECK" : (c == BREAKDOWN) ? "RANDOM BREAKDOWNS" : "NORMAL";
+    log(LOG_WARNING, "System", "Factory Scenario updated to " + std::string(caseName));
 }
 
 void Controller::addRawWafer(int count) {
@@ -129,5 +145,21 @@ void Controller::repairMachine(int index) {
     if (index < 0 || index >= machines.size()) return;
     if (machines[index]) {
         machines[index]->repair();
+        log(LOG_INFO, "System", "Instant Repair applied to machine " + std::to_string(index) + ".");
+    }
+}
+
+void Controller::forceBreakMachine(int index) {
+    if (index < 0 || index >= machines.size()) return;
+    if (machines[index]) {
+        machines[index]->breakdown();
+    }
+}
+
+void Controller::setMachinePower(int index, bool on) {
+    if (index < 0 || index >= machines.size()) return;
+    if (machines[index]) {
+        machines[index]->setPowered(on);
+        log(LOG_INFO, "System", "Machine " + std::to_string(index) + " power " + (on ? "ON." : "OFF."));
     }
 }

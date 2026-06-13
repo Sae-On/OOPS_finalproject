@@ -43,6 +43,15 @@ int Bridge::getFinishedCPUCount() const {
 int Bridge::getDefectiveCount() const {
     return controller->getLostCount();
 }
+int Bridge::getBreakdownCount() const {
+    return controller->getBreakdownCount();
+}
+int Bridge::getWipCount() const {
+    return controller->getWipCount();
+}
+int Bridge::getTick() const {
+    return controller->getTick();
+}
 void Bridge::updateCase(Case c) {
     controller->updateCase(c);
 }
@@ -51,6 +60,15 @@ void Bridge::addRawWafer(int count) {
 }
 void Bridge::repairMachine(int index) {
     controller->repairMachine(index);
+}
+void Bridge::forceBreakMachine(int index) {
+    controller->forceBreakMachine(index);
+}
+void Bridge::setMachinePower(int index, bool on) {
+    controller->setMachinePower(index, on);
+}
+void Bridge::clearLog() {
+    controller->clearLog();
 }
 void Bridge::start() {
     controller->start();

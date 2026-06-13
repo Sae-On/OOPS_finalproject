@@ -1,4 +1,5 @@
 #define GL_SILENCE_DEPRECATION
+#define SDL_MAIN_HANDLED   // we provide our own main(); do not let SDL redefine it
 
 #include <algorithm>
 #include <array>
@@ -33,9 +34,14 @@ struct ControlPanelRequest {
     bool requestReset          = false;
     bool requestAddRawWafer    = false;
     bool requestRepair         = false;
+    bool requestForceBreak     = false;
+    bool requestClearLog       = false;
     bool requestPowerToggle    = false;
+    bool requestScenarioChange = false;
     int  selectedMachineIndex  = 0;
     int  rawWaferAmount        = 5;
+    int  simulationSpeed       = 1;   // 1x - 5x ticks
+    int  selectedScenario      = 0;   // 0 Normal, 1 Bottleneck, 2 Random Breakdowns
     std::array<bool, 4> machinePowerOn = {true, true, true, true};
 };
 
@@ -64,6 +70,11 @@ struct ProductStatusViewData {
 struct ViewportViewData {
     int activeMachineIndex = 0;
     int activeProductIndex = 0;
+    int tick               = 0;
+    int finishedGoods      = 0;
+    int wipCount           = 0;
+    int totalBreakdowns    = 0;
+    int lostProducts       = 0;
     std::array<MachineStatusViewData, 4> machines;
     std::array<ProductStatusViewData, 5> products;
 };
@@ -85,6 +96,11 @@ static ViewportViewData BuildViewData(const Bridge& bridge, int selectedMachine)
     ViewportViewData vd;
     vd.activeMachineIndex = selectedMachine;
     vd.activeProductIndex = std::clamp(selectedMachine, 0, 4);
+    vd.tick            = bridge.getTick();
+    vd.finishedGoods   = bridge.getFinishedCPUCount();
+    vd.wipCount        = bridge.getWipCount();
+    vd.totalBreakdowns = bridge.getBreakdownCount();
+    vd.lostProducts    = bridge.getDefectiveCount();
 
     for (int i = 0; i < 4; ++i) {
         MachineStatusViewData& m = vd.machines[i];
@@ -202,7 +218,7 @@ class ControlPanelWindow {
 public:
     void Render(ControlPanelRequest& request, const ViewportViewData& viewportData, bool isRunning) {
         ImGui::SetNextWindowPos(ImVec2(16, 16), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(350, 560), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(350, 410), ImGuiCond_FirstUseEver);
         ImGui::Begin("Control Panel");
 
         // ── 라인 제어 ──
@@ -215,6 +231,20 @@ public:
         if (ImGui::Button("Reset", ImVec2(104, 32))) {
             request.requestReset = true;
             AddLog("send: FactoryController::reset()");
+        }
+
+        // ── 라이브 틱 카운터 & 속도 ──
+        ImGui::Text("Tick: %d   %s", viewportData.tick, isRunning ? "(running)" : "(paused)");
+        if (ImGui::SliderInt("Speed", &request.simulationSpeed, 1, 5, "%dx")) {
+            AddLog("set: simulation speed = " + std::to_string(request.simulationSpeed) + "x");
+        }
+
+        // ── 시나리오 선택 ──
+        ImGui::Separator();
+        const char* scenarioNames[] = {"Normal flow", "Bottleneck", "Random Breakdowns"};
+        if (ImGui::Combo("Scenario", &request.selectedScenario, scenarioNames, 3)) {
+            request.requestScenarioChange = true;
+            AddLog(std::string("send: FactoryController::updateCase(") + scenarioNames[request.selectedScenario] + ")");
         }
 
         // ── 재료 추가 ──
@@ -236,7 +266,13 @@ public:
             request.requestPowerToggle = true;
             AddLog(std::string("send: FactoryController::setPower(") + (pw ? "true)" : "false)"));
         }
-        if (ImGui::Button("Repair Machine", ImVec2(-1.0f, 30.0f))) {
+        float halfW = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+        if (ImGui::Button("Force Break", ImVec2(halfW, 30.0f))) {
+            request.requestForceBreak = true;
+            AddLog("send: FactoryController::forceBreakMachine()");
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Instant Repair", ImVec2(halfW, 30.0f))) {
             request.requestRepair = true;
             AddLog("send: FactoryController::repairMachine()");
         }
@@ -409,6 +445,63 @@ public:
     }
 };
 
+class EventLogWindow {
+public:
+    void Render(const std::vector<LogEntry>& entries, bool& clearRequested) {
+        ImGui::SetNextWindowPos(ImVec2(16, 566), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(350, 206), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Event Log");
+
+        if (ImGui::Button("Clear Log", ImVec2(-1.0f, 26.0f))) {
+            clearRequested = true;
+            selected_ = -1;
+        }
+        ImGui::Separator();
+
+        ImGui::BeginChild("log_scroll", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
+        bool atBottom = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 4.0f;
+        for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
+            const LogEntry& entry = entries[i];
+            ImGui::PushStyleColor(ImGuiCol_Text, LogColor(entry.level));
+            if (ImGui::Selectable(entry.toString().c_str(), selected_ == i)) {
+                selected_ = i;
+            }
+            ImGui::PopStyleColor();
+        }
+        if (atBottom && static_cast<int>(entries.size()) != lastCount_) {
+            ImGui::SetScrollHereY(1.0f);
+        }
+        lastCount_ = static_cast<int>(entries.size());
+        ImGui::EndChild();
+
+        ImGui::End();
+    }
+
+private:
+    int selected_  = -1;
+    int lastCount_ = 0;
+
+    static ImVec4 LogColor(LogLevel level) {
+        if (level == LOG_ERROR)   return ImVec4(0.92f, 0.35f, 0.35f, 1.0f);
+        if (level == LOG_WARNING) return ImVec4(0.95f, 0.78f, 0.30f, 1.0f);
+        return ImVec4(0.78f, 0.84f, 0.90f, 1.0f);
+    }
+};
+
+class StatisticsWindow {
+public:
+    void Render(const ViewportViewData& data) {
+        ImGui::SetNextWindowPos(ImVec2(16, 436), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(350, 120), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Statistics");
+        ImGui::Text("Finished goods  : %d", data.finishedGoods);
+        ImGui::Text("WIP (in system) : %d", data.wipCount);
+        ImGui::Text("Total breakdowns: %d", data.totalBreakdowns);
+        ImGui::Text("Lost products   : %d", data.lostProducts);
+        ImGui::End();
+    }
+};
+
 // ─────────────────────────────────────────────────────────────
 // 최상위 앱 클래스: FactoryController + 모든 UI 창 통합
 // ─────────────────────────────────────────────────────────────
@@ -418,27 +511,42 @@ public:
     void Render() {
         static float accumulator = 0.0f;
         accumulator += ImGui::GetIO().DeltaTime;
-        const float tickInterval = 0.1f; // 10 ticks/sec
+        // 속도 슬라이더(1x~5x)에 따라 틱 간격을 조절한다.
+        const float tickInterval = 0.1f / static_cast<float>(std::max(1, request_.simulationSpeed));
         while (accumulator >= tickInterval) {
             controller_.update();
             accumulator -= tickInterval;
         }
 
         ViewportViewData vd = BuildViewData(controller_, request_.selectedMachineIndex);
+        for (int i = 0; i < 4; ++i) {
+            vd.machines[i].powerOn = request_.machinePowerOn[i];
+        }
 
-        // ③ UI 요청 처리
-        if (request_.requestStart)       { controller_.start();                               request_.requestStart       = false; }
-        if (request_.requestPause)       { controller_.pause();                               request_.requestPause       = false; }
-        if (request_.requestReset)       { controller_.reset();                               request_.requestReset       = false; }
-        if (request_.requestAddRawWafer) { controller_.addRawWafer(request_.rawWaferAmount);  request_.requestAddRawWafer = false; }
-        if (request_.requestRepair)      { controller_.repairMachine(request_.selectedMachineIndex); request_.requestRepair = false; }
+        // ③ UI 요청 처리 (carrier-pigeon 명령을 백엔드에 전달)
+        if (request_.requestStart)       { controller_.start();                                       request_.requestStart       = false; }
+        if (request_.requestPause)       { controller_.pause();                                       request_.requestPause       = false; }
+        if (request_.requestReset)       { controller_.reset();                                       request_.requestReset       = false; }
+        if (request_.requestAddRawWafer) { controller_.addRawWafer(request_.rawWaferAmount);          request_.requestAddRawWafer = false; }
+        if (request_.requestRepair)      { controller_.repairMachine(request_.selectedMachineIndex);  request_.requestRepair      = false; }
+        if (request_.requestForceBreak)  { controller_.forceBreakMachine(request_.selectedMachineIndex); request_.requestForceBreak = false; }
+        if (request_.requestClearLog)    { controller_.clearLog();                                    request_.requestClearLog    = false; }
+        if (request_.requestScenarioChange) {
+            controller_.updateCase(static_cast<Case>(request_.selectedScenario));
+            request_.requestScenarioChange = false;
+        }
         if (request_.requestPowerToggle) {
+            controller_.setMachinePower(request_.selectedMachineIndex,
+                                        request_.machinePowerOn[request_.selectedMachineIndex]);
             request_.requestPowerToggle = false;
         }
+
         controlPanel_.Render(request_, vd, controller_.isRunning());
         viewport_.Render(vd);
         productStatus_.Render(vd.products);
         machineStatus_.Render(vd.machines, request_.selectedMachineIndex);
+        statistics_.Render(vd);
+        eventLog_.Render(controller_.getLogEntries(), request_.requestClearLog);
     }
 
     bool IsDarkMode() const { return true; }
@@ -450,13 +558,16 @@ private:
     MachineStatusWindow  machineStatus_;
     ProductStatusWindow  productStatus_;
     FactoryViewportWindow viewport_;
+    StatisticsWindow     statistics_;
+    EventLogWindow       eventLog_;
 };
 
 // ─────────────────────────────────────────────────────────────
 // main
 // ─────────────────────────────────────────────────────────────
 
-int SDL_main(int argc, char** argv) {
+int main(int argc, char** argv) {
+    SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
         return -1;
     }

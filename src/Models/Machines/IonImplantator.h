@@ -4,7 +4,7 @@
 
 class IonImplantator : public Machine {
 public:
-    IonImplantator() : Machine(5,6,0.01f) {
+    IonImplantator() : Machine(5,6,0.03f) {
         setCaseProcessTimes(5, 5);
     }
     virtual void update(int tick) override;

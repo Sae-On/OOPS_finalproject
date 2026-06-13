@@ -4,7 +4,7 @@
 
 class Etcher : public Machine {
 public:
-    Etcher() : Machine(4, 5, 0.01f) {
+    Etcher() : Machine(4, 5, 0.04f) {
         setCaseProcessTimes(4, 15);
     }
     virtual void update(int tick) override;
