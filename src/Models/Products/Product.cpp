@@ -15,8 +15,11 @@ void Product::update(int tick) {
         if (auto shared_listener=listener.lock()){
             shared_listener->deleteProduct(shared_from_this(), getState());
         }
+        // Only drop the listener once the product has reached a terminal state and
+        // been reported. Resetting it earlier (on every tick) would orphan products
+        // that turn terminal later, so their loss/completion would never be counted.
+        listener.reset();
     }
-    listener.reset();
 }
 
 ProductState Product::getState() const {
