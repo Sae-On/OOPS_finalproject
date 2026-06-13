@@ -11,6 +11,9 @@ void Machine::switchCase(Case c) {
 void Machine::breakdown() {
     setState(MACHINE_BROKEN);
     remaining_time=durability.getRepairTime();
+    if (auto listener_shared=listener.lock()){
+        listener_shared->onMachineBreakdown();
+    }
 }
 
 std::string Machine::getStateName() const {
@@ -96,4 +99,61 @@ int Machine::getProcessTimeForCase(Case c) const {
         return bottleneckProcessTime;
     }
     return normalProcessTime;
+}
+
+void Machine::handleProcessing(){
+    auto next=getNextMachine();
+    decreaseRemainingTime(1);
+    durability.decreaseHealth(1);
+    if (!isRemainTime()) {
+        if (!next) {
+            std::shared_ptr<Product> done = getCurrentProduct();
+            setCurrentProduct(nullptr);
+            done->setState(DELETED);
+            auto newWafer=makeWaferPtr(done);
+            generateProduct(newWafer);
+            setOutputNum(getOutputNum() + 1);
+            if (durability.checkBreakdown()) {
+                breakdown();
+            }
+        } else if (next && next->getQueue().getQueueSize() < next->getQueue().getMaxQueueSize()) {
+            std::shared_ptr<Product> done = getCurrentProduct();
+            auto newWafer=makeWaferPtr(done);
+            std::shared_ptr<Product> processedProduct = generateProduct(newWafer);
+            setCurrentProduct(nullptr);
+            done->setState(DELETED);
+            next->getQueue().addQueue(processedProduct);
+            
+            setOutputNum(getOutputNum() + 1);
+            if (durability.checkBreakdown()) {
+                breakdown();
+            }
+        } else {
+            getCurrentProduct()->setState(DAMAGED);
+            setState(MACHINE_IDLE);
+            setCurrentProduct(nullptr);
+        }
+    }
+}
+
+void Machine::update(int tick) {
+    if (!power) return;
+    if (getState() == MACHINE_BROKEN) {
+        handleBrokenState();
+        return;
+    }
+
+    if (getCurrentProduct() == nullptr) {
+        fetchNextProduct();
+        if (getCurrentProduct()==nullptr){
+            return;
+        }
+    }
+    if (getCurrentProduct() != nullptr) {
+        handleProcessing();
+    }  
+}
+
+void Machine::setPower(bool power){
+    this->power=power;
 }

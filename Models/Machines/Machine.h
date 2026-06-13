@@ -12,7 +12,7 @@
 enum MachineState { MACHINE_IDLE, MACHINE_PROCESSING, MACHINE_BROKEN };
 enum Case { NORMAL, BOTTLENECK };
 
-typedef struct {
+struct MachineData{
     std::string name;
     std::string stateName;
     int queueSize;
@@ -24,7 +24,8 @@ typedef struct {
     int maxHealth;
     int progress;
     float breakdownChance;
-} MachineData;
+    bool power;
+};
 
 class Machine : public Root {
 private:
@@ -35,7 +36,7 @@ private:
     int remaining_time;
     std::weak_ptr<MachineListener> listener;
     std::shared_ptr<Machine> nextMachine;
-    
+    bool power=true;
 protected:
     MachineState getState() const { return state; }
     void setState(MachineState s) { state = s; }
@@ -57,13 +58,13 @@ protected:
     std::shared_ptr<Product> generateProduct(std::shared_ptr<Product> new_product);
     void handleBrokenState();
     void fetchNextProduct();
-    template<typename T>
     void handleProcessing();
     std::shared_ptr<Machine> getNextMachine() const { return nextMachine; }
+    virtual std::shared_ptr<Product> makeWaferPtr(std::shared_ptr<Product>) const=0;
 public:
     Machine(int processT, int repairT, float breakdownC);
     virtual ~Machine()=default;
-    virtual void update(int tick)=0;
+    virtual void update(int tick);
     virtual MachineData getInfo() const=0;
     virtual void switchCase(Case c);
     virtual void breakdown();
@@ -77,42 +78,7 @@ public:
     int getRemainingTime() const { return remaining_time; }
     void setListener(std::weak_ptr<MachineListener> newListener);
     void reset();
+    void setPower(bool power);
+    bool getPower() const { return power; }
 };
-
-template <typename T>
-void Machine::handleProcessing(){
-    auto next=getNextMachine();
-    decreaseRemainingTime(1);
-    durability.decreaseHealth(1);
-    if (!isRemainTime()) {
-        if (!next) {
-            std::shared_ptr<Product> done = getCurrentProduct();
-            setCurrentProduct(nullptr);
-            done->setState(DELETED);
-            auto newWafer=std::make_shared<T>(*done);
-            generateProduct(newWafer);
-            setOutputNum(getOutputNum() + 1);
-            if (durability.checkBreakdown()) {
-                breakdown();
-            }
-        } else if (next && next->getQueue().getQueueSize() < next->getQueue().getMaxQueueSize()) {
-            std::shared_ptr<Product> done = getCurrentProduct();
-            auto newWafer=std::make_shared<T>(*done);
-            std::shared_ptr<Product> processedProduct = generateProduct(newWafer);
-            setCurrentProduct(nullptr);
-            done->setState(DELETED);
-            next->getQueue().addQueue(processedProduct);
-            
-            setOutputNum(getOutputNum() + 1);
-            if (durability.checkBreakdown()) {
-                breakdown();
-            }
-        } else {
-            getCurrentProduct()->setState(DAMAGED);
-            setCurrentProduct(nullptr);
-            setState(MACHINE_IDLE);
-        }
-    }
-}
 #endif
-

@@ -2,24 +2,8 @@
 #include "../Products/PatternedWafer.h"
 #include <memory>
 
-void Photolithography::update(int tick) {
-    if (getState() == MACHINE_BROKEN) {
-        handleBrokenState();
-        return;
-    }
-
-    if (getCurrentProduct() == nullptr) {
-        fetchNextProduct();
-        if (getCurrentProduct()==nullptr){
-            return;
-        }
-    }
-
-    auto next=getNextMachine();
-    if (getCurrentProduct() != nullptr) {
-        handleProcessing<PatternedWafer>();
-    }
-    
+std::shared_ptr<Product> Photolithography::makeWaferPtr(std::shared_ptr<Product> done) const {
+    return std::make_shared<PatternedWafer>(*done);
 }
 
 MachineData Photolithography::getInfo() const {
@@ -35,6 +19,7 @@ MachineData Photolithography::getInfo() const {
     data.maxHealth=durability.getMaxHealth();
     data.progress=getProgress();
     data.breakdownChance=durability.getBreakdownChance();
+    data.power=getPower();
     return data;
 }
 

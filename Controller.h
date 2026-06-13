@@ -16,6 +16,7 @@ private:
     int tick=0;
     int lost_products_num=0;
     int completed_products_num=0;
+    int totalBreakdownCount=0;
     bool running=false;
     Case curr_case=NORMAL;
     Logger logger;
@@ -24,6 +25,7 @@ public:
     void addMachine(std::shared_ptr<Machine> new_m);
     void setGenerator(std::unique_ptr<Generator> new_generator);
     void onProductGenerated(std::shared_ptr<Product> newProduct);
+    void onMachineBreakdown();
     void deleteProduct(std::shared_ptr<Product> product, ProductState state);
     void update();
     MachineData getMachineInfo(int i) const;
@@ -34,13 +36,17 @@ public:
     void updateCase(Case c);
     void addRawWafer(int count);
     void repairMachine(int index);
+    void forceBreakMachine(int index);
     int getCompletedCount() const { return completed_products_num; }
     int getLostCount() const { return lost_products_num; }
+    int getTotalBreakdownCount() const { return totalBreakdownCount; }
+    int getWipCount() const { return static_cast<int>(products.size()); }
+    int getTick() const {return tick;}
     void log(LogLevel level, const std::string& source, const std::string& message) {
         logger.addLog(tick, level, source, message);
     }
-    const Logger& getLogger() const { return logger; }
     Logger& getLogger() { return logger; }
+    void setPower(int index, bool power);
 };
 
 #endif

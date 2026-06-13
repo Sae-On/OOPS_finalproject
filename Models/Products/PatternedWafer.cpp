@@ -1,6 +1,5 @@
 #include "PatternedWafer.h"
 #include "RawWafer.h"
-#include <iostream>
 
 PatternedWafer::PatternedWafer() : Product(PATTERNED) {}
 

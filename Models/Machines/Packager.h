@@ -3,11 +3,12 @@
 #include "Machine.h"
 
 class Packager : public Machine {
+protected:
+    virtual std::shared_ptr<Product> makeWaferPtr(std::shared_ptr<Product>) const override;
 public:
     Packager() : Machine(2,4,0.01f) {
         setCaseProcessTimes(2, 2);
     }
-    virtual void update(int tick) override;
     virtual MachineData getInfo() const override;
 };
 #endif

@@ -1,22 +1,9 @@
 #include "Packager.h"
 #include "../Products/CPU.h"
 
-void Packager::update(int tick) {
-    if (getState() == MACHINE_BROKEN) {
-        handleBrokenState();
-        return;
-    }
 
-    if (getCurrentProduct() == nullptr) {
-        fetchNextProduct();
-        if (getCurrentProduct()==nullptr){
-            return;
-        }
-    }
-
-    if (getCurrentProduct() != nullptr) {
-        handleProcessing<CPU>();
-    }
+std::shared_ptr<Product> Packager::makeWaferPtr(std::shared_ptr<Product> done) const {
+    return std::make_shared<CPU>(*done);
 }
 
 MachineData Packager::getInfo() const {
@@ -32,5 +19,6 @@ MachineData Packager::getInfo() const {
     data.maxHealth=durability.getMaxHealth();
     data.progress=getProgress();
     data.breakdownChance=durability.getBreakdownChance();
+    data.power=getPower();
     return data;
 }

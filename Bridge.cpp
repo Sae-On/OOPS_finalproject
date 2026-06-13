@@ -37,12 +37,25 @@ int Bridge::getMachineQueueSize(int index) const {
 int Bridge::getWaferCount(int index) const {
     return controller->getMachineInfo(index).queueSize + (controller->getMachineInfo(index).stateName == "PROCESSING" ? 1 : 0);
 }
+bool Bridge::getMachinePower(int index) const {
+    return controller->getMachineInfo(index).power;
+}
 int Bridge::getFinishedCPUCount() const {
     return controller->getCompletedCount();
 }
 int Bridge::getDefectiveCount() const {
     return controller->getLostCount();
 }
+int Bridge::getWipCount() const {
+    return controller->getWipCount();
+}
+int Bridge::getTotalBreakdownCount() const {
+    return controller->getTotalBreakdownCount();
+}
+int Bridge::getTick() const {
+    return controller->getTick();
+}
+
 void Bridge::updateCase(Case c) {
     controller->updateCase(c);
 }
@@ -51,6 +64,12 @@ void Bridge::addRawWafer(int count) {
 }
 void Bridge::repairMachine(int index) {
     controller->repairMachine(index);
+}
+void Bridge::forceBreakMachine(int index) {
+    controller->forceBreakMachine(index);
+}
+void Bridge::setPower(int index, bool power) {
+    controller->setPower(index, power);
 }
 void Bridge::start() {
     controller->start();
@@ -61,6 +80,9 @@ void Bridge::pause() {
 void Bridge::reset() {
     controller->reset();
 }
-const std::vector<LogEntry>& Bridge::getLogEntries() const {
+std::vector<LogEntry> Bridge::getLogEntries() const {
     return controller->getLogger().getLogs();
+}
+void Bridge::clearLog(){
+    controller->getLogger().clear();
 }

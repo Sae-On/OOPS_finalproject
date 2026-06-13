@@ -2,21 +2,8 @@
 #include "../Products/DopedWafer.h"
 #include <memory>
 
-void IonImplantator::update(int tick) {
-    if (getState() == MACHINE_BROKEN) {
-        handleBrokenState();
-        return;
-    }
-
-    if (getCurrentProduct() == nullptr) {
-        fetchNextProduct();
-        if (getCurrentProduct()==nullptr){
-            return;
-        }
-    }
-    if (getCurrentProduct() != nullptr) {
-        handleProcessing<DopedWafer>();
-    }
+std::shared_ptr<Product> IonImplantator::makeWaferPtr(std::shared_ptr<Product> done) const {
+    return std::make_shared<DopedWafer>(*done);
 }
 
 MachineData IonImplantator::getInfo() const {
@@ -32,5 +19,6 @@ MachineData IonImplantator::getInfo() const {
     data.maxHealth=durability.getMaxHealth();
     data.progress=getProgress();
     data.breakdownChance=durability.getBreakdownChance();
+    data.power=getPower();
     return data;
 }

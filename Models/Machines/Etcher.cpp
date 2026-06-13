@@ -2,21 +2,8 @@
 #include "../Products/EtchedWafer.h"
 #include <memory>
 
-void Etcher::update(int tick) {
-    if (getState() == MACHINE_BROKEN) {
-        handleBrokenState();
-        return;
-    }
-
-    if (getCurrentProduct() == nullptr) {
-        fetchNextProduct();
-        if (getCurrentProduct()==nullptr){
-            return;
-        }
-    }
-    if (getCurrentProduct() != nullptr) {
-        handleProcessing<EtchedWafer>();
-    }  
+std::shared_ptr<Product> Etcher::makeWaferPtr(std::shared_ptr<Product> done) const {
+    return std::make_shared<EtchedWafer>(*done);
 }
 
 MachineData Etcher::getInfo() const {
@@ -32,5 +19,6 @@ MachineData Etcher::getInfo() const {
     data.maxHealth=durability.getMaxHealth();
     data.progress=getProgress();
     data.breakdownChance=durability.getBreakdownChance();
+    data.power=getPower();
     return data;
 }

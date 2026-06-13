@@ -35,6 +35,10 @@ void Controller::onProductGenerated(std::shared_ptr<Product> newProduct){
     newly_generated_products.push_back(newProduct);
 }
 
+void Controller::onMachineBreakdown(){
+    totalBreakdownCount++;
+}
+
 void Controller::deleteProduct(std::shared_ptr<Product> product, ProductState state){
     if (!product) return;
     switch (state)
@@ -64,11 +68,11 @@ void Controller::update(){
         }
     }
     newly_generated_products.clear();
-    for (const auto& product : products){
-        if (product) product->update(tick);
-    }
     for (const auto& machine : machines){
         if (machine) machine->update(tick);
+    }
+    for (const auto& product : products){
+        if (product) product->update(tick);
     }
     products.erase(
         std::remove_if(products.begin(), products.end(), [](const std::shared_ptr<Product>& p) {
@@ -83,7 +87,7 @@ void Controller::update(){
 }
 
 MachineData Controller::getMachineInfo(int i) const{
-    if (i>=0 && i<machines.size()){
+    if (i>=0 and i<machines.size()){
         if (!machines[i]) return {"UNKNOWN","UNKNOWN",0,0,0,0,0,0,0};
         return machines[i]->getInfo();
     } else {
@@ -95,6 +99,7 @@ void Controller::reset(){
     tick=0;
     lost_products_num=0;
     completed_products_num=0;
+    totalBreakdownCount=0;
     products.clear();
     for (const auto& m : machines){
         m->reset();
@@ -129,5 +134,19 @@ void Controller::repairMachine(int index) {
     if (index < 0 || index >= machines.size()) return;
     if (machines[index]) {
         machines[index]->repair();
+    }
+}
+
+void Controller::forceBreakMachine(int index) {
+    if (index < 0 || index >= machines.size()) return;
+    if (machines[index]) {
+        machines[index]->breakdown();
+    }
+}
+
+void Controller::setPower(int index, bool power) {
+    if (index < 0 || index >= machines.size()) return;
+    if (machines[index]) {
+        machines[index]->setPower(power);
     }
 }

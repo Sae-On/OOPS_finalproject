@@ -15,8 +15,9 @@ void Product::update(int tick) {
         if (auto shared_listener=listener.lock()){
             shared_listener->deleteProduct(shared_from_this(), getState());
         }
+        listener.reset();
     }
-    listener.reset();
+    
 }
 
 ProductState Product::getState() const {
