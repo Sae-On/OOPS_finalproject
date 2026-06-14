@@ -16,7 +16,7 @@ abstract class Root {
 
 interface MachineListener {
   +{abstract} onProductGenerated(p: shared_ptr<Product>)
-  +onMachineBroken(machineName: string)
+  +{abstract} onMachineBreakdown()
 }
 
 interface ProductListener {
@@ -71,6 +71,7 @@ class MachineData <<struct>> {
   +maxHealth: int
   +progress: int
   +breakdownChance: float
+  +power: bool
 }
 
 class LogEntry <<struct>> {
@@ -94,11 +95,12 @@ class Durability {
   +decreaseHealth(amount: int)
   +checkBreakdown(): bool
   +repair()
+  +breakdown()
   +reset()
   +getHealth(): int
+  +getMaxHealth(): int
   +getRepairTime(): int
   +getBreakdownChance(): float
-  +setBreakdownChance(bc: float)
 }
 
 abstract class Machine {
@@ -109,47 +111,52 @@ abstract class Machine {
   -remaining_time: int
   -listener: weak_ptr<MachineListener>
   -nextMachine: shared_ptr<Machine>
-  -powered: bool
-  -baseBreakdownChance: float
+  -power: bool
   #queue: ProgressQueue
   #durability: Durability
   #normalProcessTime: int
   #bottleneckProcessTime: int
+  #setCaseProcessTimes(normalTime: int, bottleneckTime: int)
   #getProcessTimeForCase(c: Case): int
-  #handleProcessing<T>()
+  #generateProduct(p: shared_ptr<Product>): shared_ptr<Product>
+  #handleProcessing()
   #handleBrokenState()
   #fetchNextProduct()
+  #{abstract} makeWaferPtr(p: shared_ptr<Product>): shared_ptr<Product>
   +Machine(processT: int, repairT: int, breakdownC: float)
-  +{abstract} update(tick: int)
+  +update(tick: int)
   +{abstract} getInfo(): MachineData
   +switchCase(c: Case)
   +breakdown()
   +repair()
   +setNextMachine(next: shared_ptr<Machine>)
   +setListener(l: weak_ptr<MachineListener>)
-  +setPowered(on: bool)
-  +isPowered(): bool
+  +setPower(power: bool)
+  +getPower(): bool
   +getStateName(): string
   +getProgress(): int
   +getQueue(): ProgressQueue&
+  +decreaseRemainingTime(amount: int)
+  +isRemainTime(): bool
+  +getRemainingTime(): int
   +reset()
 }
 
 class Photolithography {
-  +update(tick: int)
   +getInfo(): MachineData
+  #makeWaferPtr(p: shared_ptr<Product>): shared_ptr<Product>
 }
 class Etcher {
-  +update(tick: int)
   +getInfo(): MachineData
+  #makeWaferPtr(p: shared_ptr<Product>): shared_ptr<Product>
 }
 class IonImplantator {
-  +update(tick: int)
   +getInfo(): MachineData
+  #makeWaferPtr(p: shared_ptr<Product>): shared_ptr<Product>
 }
 class Packager {
-  +update(tick: int)
   +getInfo(): MachineData
+  #makeWaferPtr(p: shared_ptr<Product>): shared_ptr<Product>
 }
 
 ' ============================================================
@@ -208,29 +215,33 @@ class Controller {
   -products: vector<shared_ptr<Product>>
   -machines: vector<shared_ptr<Machine>>
   -generator: unique_ptr<Generator>
+  -newly_generated_products: vector<shared_ptr<Product>>
   -tick: int
   -lost_products_num: int
   -completed_products_num: int
-  -breakdown_num: int
+  -totalBreakdownCount: int
   -running: bool
   -curr_case: Case
   -logger: Logger
   +addMachine(m: shared_ptr<Machine>)
   +setGenerator(g: unique_ptr<Generator>)
   +onProductGenerated(p: shared_ptr<Product>)
-  +onMachineBroken(name: string)
+  +onMachineBreakdown()
   +deleteProduct(p, state)
   +update()
+  +getMachineInfo(i: int): MachineData
   +start() / +pause() / +reset()
+  +isRunning(): bool
   +updateCase(c: Case)
   +addRawWafer(count: int)
   +repairMachine(index: int)
   +forceBreakMachine(index: int)
-  +setMachinePower(index: int, on: bool)
-  +clearLog()
+  +setPower(index: int, power: bool)
+  +log(level: LogLevel, source: string, message: string)
+  +getLogger(): Logger&
   +getTick(): int
   +getWipCount(): int
-  +getBreakdownCount(): int
+  +getTotalBreakdownCount(): int
   +getCompletedCount(): int
   +getLostCount(): int
 }
@@ -243,12 +254,13 @@ class Bridge {
   -controller: shared_ptr<Controller>
   +getMachineName/State/Health/Progress(i): ...
   +getMachineBreakdownChance/ProcessTime/RemainingTime/QueueSize(i)
+  +getMachinePower(i): bool
   +getWaferCount(i) / getFinishedCPUCount() / getDefectiveCount()
-  +getBreakdownCount() / getWipCount() / getTick()
+  +getTotalBreakdownCount() / getWipCount() / getTick()
   +updateCase(c) / addRawWafer(n) / repairMachine(i)
-  +forceBreakMachine(i) / setMachinePower(i, on) / clearLog()
+  +forceBreakMachine(i) / setPower(i, power) / clearLog()
   +start() / pause() / isRunning() / reset() / update()
-  +getLogEntries(): const vector<LogEntry>&
+  +getLogEntries(): vector<LogEntry>
 }
 
 ' ============================================================
@@ -267,6 +279,7 @@ package "Frontend (ImGui)" {
     +machinePowerOn: bool[4]
   }
   class ViewportViewData <<struct>> {
+    +activeMachineIndex / activeProductIndex: int
     +tick / finishedGoods / wipCount: int
     +totalBreakdowns / lostProducts: int
     +machines: MachineStatusViewData[4]
