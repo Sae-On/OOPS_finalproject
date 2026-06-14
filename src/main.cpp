@@ -41,7 +41,7 @@ struct ControlPanelRequest {
     int  selectedMachineIndex  = 0;
     int  rawWaferAmount        = 5;
     int  simulationSpeed       = 1;   // 1x - 5x ticks
-    int  selectedScenario      = 0;   // 0 Normal, 1 Bottleneck, 2 Random Breakdowns
+    int  selectedScenario      = 0;   // 0 Normal, 1 Bottleneck
     std::array<bool, 4> machinePowerOn = {true, true, true, true};
 };
 
@@ -241,8 +241,8 @@ public:
 
         // ── 시나리오 선택 ──
         ImGui::Separator();
-        const char* scenarioNames[] = {"Normal flow", "Bottleneck", "Random Breakdowns"};
-        if (ImGui::Combo("Scenario", &request.selectedScenario, scenarioNames, 3)) {
+        const char* scenarioNames[] = {"Normal flow", "Bottleneck"};
+        if (ImGui::Combo("Scenario", &request.selectedScenario, scenarioNames, 2)) {
             request.requestScenarioChange = true;
             AddLog(std::string("send: FactoryController::updateCase(") + scenarioNames[request.selectedScenario] + ")");
         }
